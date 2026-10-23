@@ -56,6 +56,8 @@ a.caso .go{font-family:var(--f-mono);font-size:.85rem;color:var(--accent);white-
 a.caso .tags{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 a.caso .tags span{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);background:var(--soft);padding:2px 8px;border-radius:4px}
 footer a{color:var(--accent)}
+  .grupos{display:flex;flex-direction:column;gap:12px}.grp{display:grid;grid-template-columns:170px 1fr;gap:6px 14px;align-items:start}.gl{font-family:var(--f-mono);font-size:.78rem;color:var(--muted);padding-top:5px}
+@media (max-width:560px){.grp{grid-template-columns:1fr}}
 footer{border-top:1px solid var(--line);padding-top:18px;font-size:.88rem;color:var(--muted);display:flex;flex-direction:column;gap:6px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 </style>
@@ -77,7 +79,12 @@ footer{border-top:1px solid var(--line);padding-top:18px;font-size:.88rem;color:
   </header>
   <section>
     <h2 data-i18n="stk"></h2>
-    <div class="stack"><span>Python</span><span>PySpark</span><span>pandas</span><span>SQL Server</span><span>SAS</span><span>Databricks</span><span>VBA / Excel</span><span>APIs REST</span><span>ETL</span><span>Git</span></div>
+    <div class="grupos">
+      <div class="grp"><span class="gl" data-i18n="g1"></span><div class="stack"><span>Python</span><span>PySpark</span><span>pandas</span><span>SQL Server</span><span>SAS</span></div></div>
+      <div class="grp"><span class="gl" data-i18n="g2"></span><div class="stack"><span>Databricks</span><span>Databricks Jobs</span><span>Delta Lake</span><span>Netezza</span></div></div>
+      <div class="grp"><span class="gl" data-i18n="g3"></span><div class="stack"><span>Power BI</span><span>IBM Cognos</span><span>Streamlit</span><span>VBA / Excel</span></div></div>
+      <div class="grp"><span class="gl" data-i18n="g4"></span><div class="stack"><span>APIs REST</span><span>ETL</span><span>Git</span></div></div>
+    </div>
   </section>
   <section>
     <h2 data-i18n="dom"></h2>
@@ -90,6 +97,11 @@ footer{border-top:1px solid var(--line);padding-top:18px;font-size:.88rem;color:
       <span class="go" data-i18n="ver"></span>
       <div class="tags"><span>Python</span><span>CustomTkinter</span><span>API</span><span>VaR</span><span>Excel</span></div>
     </a>
+    <a class="caso" href="alura-films/" style="margin-top:16px">
+      <div><h3 data-i18n="c2h"></h3><p data-i18n="c2t"></p></div>
+      <span class="go" data-i18n="ver"></span>
+      <div class="tags"><span>Power BI</span><span>BI</span><span>IMDb</span></div>
+    </a>
   </section>
   <footer>
     <span data-i18n="foot1"></span>
@@ -99,13 +111,13 @@ footer{border-top:1px solid var(--line);padding-top:18px;font-size:.88rem;color:
 <script>
 var T={pt:{tema:"Tema",eyebrow:"Portfólio",h1:"Dados e risco, automatizados",
 lead:"Trabalho com automação de relatórios, ETL e risco de mercado em uma instituição financeira. Aqui estão estudos de caso de aplicações que construí, com demonstrações em dados fictícios.",
-stk:"Ferramentas",dom:"Domínio",d1:"Risco de mercado",d2:"Relatórios regulatórios",casos:"Estudos de caso",c1h:"Relatórios de risco que se geram sozinhos",
-c1t:"Aplicação em Python que executa, coleta e consolida relatórios de VaR, PV01, Duration e outros para dezenas de carteiras de fundos. Inclui demo interativa.",ver:"Ver caso",
+stk:"Ferramentas",g1:"Linguagens e dados",g2:"Plataformas",g3:"BI e aplicações",g4:"Engenharia",dom:"Domínio",d1:"Risco de mercado",d2:"Relatórios regulatórios",casos:"Estudos de caso",c1h:"Relatórios de risco que se geram sozinhos",
+c1t:"Aplicação em Python que executa, coleta e consolida relatórios de VaR, PV01, Duration e outros para dezenas de carteiras de fundos. Inclui demo interativa.",ver:"Ver caso",c2h:"Dashboard de filmes no Power BI",c2t:"Relatório interativo de cinco páginas sobre 1.000 filmes do IMDb: faturamento, votos, atores e diretores. Projeto do Desafio de BI da Alura.",
 foot1:"Os projetos descrevem trabalho real. Nenhum dado, nome de carteira, endereço ou credencial da instituição é exibido.",contato:"Contato:"},
 en:{tema:"Theme",eyebrow:"Portfolio",h1:"Data and risk, automated",
 lead:"I work on report automation, ETL and market risk at a financial institution. Here are case studies of applications I built, with demos on synthetic data.",
-stk:"Tools",dom:"Domain",d1:"Market risk",d2:"Regulatory reporting",casos:"Case studies",c1h:"Risk reports that build themselves",
-c1t:"A Python application that runs, collects and consolidates VaR, PV01, Duration and other reports for dozens of fund portfolios. Includes an interactive demo.",ver:"View case",
+stk:"Tools",g1:"Languages and data",g2:"Platforms",g3:"BI and apps",g4:"Engineering",dom:"Domain",d1:"Market risk",d2:"Regulatory reporting",casos:"Case studies",c1h:"Risk reports that build themselves",
+c1t:"A Python application that runs, collects and consolidates VaR, PV01, Duration and other reports for dozens of fund portfolios. Includes an interactive demo.",ver:"View case",c2h:"Movie dashboard in Power BI",c2t:"An interactive five-page report on 1,000 IMDb movies: revenue, votes, actors and directors. A project from Alura's BI Challenge.",
 foot1:"Projects describe real work. No data, portfolio names, addresses or credentials from the institution are shown.",contato:"Contact:"}};
 var lang="pt";
 function lerPref(k){try{return localStorage.getItem(k)}catch(e){return null}}

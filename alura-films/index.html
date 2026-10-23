@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dashboard de filmes no Power BI</title>
+<meta name="description" content="Estudo de caso de Business Intelligence: relatório interativo de cinco páginas em Power BI sobre 1.000 filmes do IMDb.">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:title" content="Dashboard de filmes no Power BI">
+<meta property="og:description" content="Relatório interativo de cinco páginas sobre 1.000 filmes do IMDb: faturamento, votos, atores e diretores.">
+<meta property="og:url" content="https://romeuqf.github.io/alura-films/">
+<meta property="og:image" content="https://romeuqf.github.io/assets/og-alura-films.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<style>
+/* Layout: pagina unica em coluna, estudo de caso de BI com galeria de telas por aba */
+:root{
+  --bg:#eceff3; --panel:#ffffff; --ink:#0d1b2a; --muted:#566275; --line:#d5dae2; --soft:#f4f6f9;
+  --accent:#a8500b; --accent-fg:#ffffff; --head:#13263d; --head-fg:#eef2f7;
+  --pos:#1b7a4b; --warn:#9a6700; --warn-bg:#fff3d6; --code:#fafbfc;
+  --f-display:"Newsreader",Georgia,serif; --f-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1118; --panel:#131b25; --ink:#e8edf3; --muted:#93a0b2; --line:#26303d; --soft:#101821;
+  --accent:#f0a35c; --accent-fg:#1a1006; --head:#1c2b3f; --head-fg:#eef2f7;
+  --pos:#5fd08e; --warn:#f0c26a; --warn-bg:#2d2412; --code:#0f161e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1118; --panel:#131b25; --ink:#e8edf3; --muted:#93a0b2; --line:#26303d; --soft:#101821;
+  --accent:#f0a35c; --accent-fg:#1a1006; --head:#1c2b3f; --head-fg:#eef2f7;
+  --pos:#5fd08e; --warn:#f0c26a; --warn-bg:#2d2412; --code:#0f161e; color-scheme:dark}
+
+html{color-scheme:light}
+
+html{color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-ui);line-height:1.55;
+  padding-block:20px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:40px;min-width:0}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+.id{font-family:var(--f-mono);font-size:.8rem;color:var(--muted);text-decoration:none}
+.ctrl{display:flex;gap:8px}
+.chip{font:inherit;font-size:.8rem;font-family:var(--f-mono);padding:5px 10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:5px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.eyebrow{font-family:var(--f-mono);font-size:.74rem;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);margin:0 0 8px}
+h1{font-family:var(--f-display);font-weight:600;font-size:clamp(2rem,5.4vw,3.2rem);line-height:1.08;margin:0 0 14px;text-wrap:balance;letter-spacing:-.01em}
+h2{font-family:var(--f-display);font-weight:600;font-size:1.6rem;line-height:1.15;margin:0 0 6px;text-wrap:balance}
+.lead{font-size:1.1rem;color:var(--muted);max-width:62ch;margin:0}
+.sec{display:flex;flex-direction:column;gap:16px;min-width:0}
+.sec p.t{margin:0;max-width:66ch;color:var(--muted)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));border:1px solid var(--line);background:var(--panel);border-radius:8px}
+.fact{padding:16px 18px;border-right:1px solid var(--line);min-width:0}.fact:last-child{border-right:0}
+.fact b{display:block;font-family:var(--f-mono);font-weight:500;font-size:1.9rem;line-height:1.1}
+.fact span{color:var(--muted);font-size:.88rem}
+@media (max-width:640px){.fact{border-right:0;border-bottom:1px solid var(--line)}.fact:last-child{border-bottom:0}}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px;min-width:0}
+.card h3{margin:0 0 6px;font-size:1rem}.card p{margin:0;color:var(--muted);font-size:.93rem}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tab{font:inherit;font-size:.88rem;padding:7px 12px;border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:6px;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:600}
+.shot{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.shot .imgs{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.shot img{width:100%;height:auto;display:block;border-radius:4px;border:1px solid var(--line)}
+.shot p{margin:0;color:var(--muted);max-width:70ch}
+.links{display:flex;flex-wrap:wrap;gap:10px}
+a.btn{font-family:var(--f-mono);font-size:.85rem;color:var(--accent);border:1px solid var(--line);background:var(--panel);padding:7px 12px;border-radius:6px;text-decoration:none}
+a.btn:hover{border-color:var(--accent)}
+footer{border-top:1px solid var(--line);padding-top:18px;font-size:.88rem;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+footer a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="id" href="../">&larr; Romeu Fronzaroli · Dados e Risco</a>
+    <div class="ctrl">
+      <button class="chip" id="l-pt" aria-pressed="true" type="button">PT</button>
+      <button class="chip" id="l-en" aria-pressed="false" type="button">EN</button>
+      <button class="chip" id="tema" type="button" data-i18n="tema">Tema</button>
+    </div>
+  </div>
+  <header class="sec">
+    <p class="eyebrow" data-i18n="eyebrow"></p>
+    <h1 data-i18n="h1"></h1>
+    <p class="lead" data-i18n="lead"></p>
+  </header>
+  <div class="facts">
+    <div class="fact"><b>1.000</b><span data-i18n="f1"></span></div>
+    <div class="fact"><b>5</b><span data-i18n="f2"></span></div>
+    <div class="fact"><b>2</b><span data-i18n="f3"></span></div>
+  </div>
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s1e"></p><h2 data-i18n="s1h"></h2></div>
+    <p class="t" data-i18n="s1t"></p>
+  </section>
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s2e"></p><h2 data-i18n="s2h"></h2></div>
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div class="shot" id="shot"></div>
+  </section>
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s3e"></p><h2 data-i18n="s3h"></h2></div>
+    <div class="cols" id="dec"></div>
+  </section>
+  <section class="sec">
+    <div class="links">
+      <a class="btn" href="https://github.com/romeuqf/Alura-Challenge-Bi" target="_blank" rel="noopener" data-i18n="repo"></a>
+    </div>
+  </section>
+  <footer>
+    <span data-i18n="foot1"></span>
+    <span><span data-i18n="contato"></span> <a href="https://www.linkedin.com/in/romeufronzaroli/" target="_blank" rel="noopener">LinkedIn</a></span>
+  </footer>
+</div>
+<script>
+var T={pt:{tema:"Tema",eyebrow:"Estudo de caso · Business Intelligence",h1:"Dashboard de filmes no Power BI",
+lead:"Relatório interativo de cinco páginas, feito no Desafio de BI da Alura (2ª edição, semana 1), para apoiar a escolha de elenco e produção a partir de 1.000 filmes do IMDb.",
+f1:"filmes do IMDb analisados",f2:"páginas navegáveis por botões",f3:"tooltips personalizados",
+s1e:"O desafio",s1h:"Escolher elenco e produção com dados",
+s1t:"A Alura Films pediu uma pesquisa de mercado para identificar o elenco e a produção ideais. A base trazia 1.000 filmes do IMDb, com notas, votos, faturamento, gênero, diretor e quatro posições de elenco. O trabalho foi explorar, tratar e transformar esses dados em respostas para a decisão.",
+s2e:"O relatório",s2h:"Cinco páginas e duas dicas de contexto",
+s3e:"Decisões",s3h:"Como o relatório foi pensado para uso",
+repo:"Ver o projeto no GitHub",
+foot1:"Projeto de estudo do Desafio de BI da Alura, com dados públicos do IMDb fornecidos pelo desafio. A marca Alura pertence aos seus donos.",contato:"Contato:"},
+en:{tema:"Theme",eyebrow:"Case study · Business Intelligence",h1:"Movie dashboard in Power BI",
+lead:"An interactive five-page report built in Alura's BI Challenge (2nd edition, week 1) to support cast and production choices from 1,000 IMDb movies.",
+f1:"IMDb movies analyzed",f2:"pages navigated by buttons",f3:"custom tooltips",
+s1e:"The challenge",s1h:"Choosing cast and production with data",
+s1t:"Alura Films asked for market research to identify the ideal cast and production. The dataset had 1,000 IMDb movies with ratings, votes, revenue, genre, director and four cast positions. The work was to explore, clean and turn that data into answers for the decision.",
+s2e:"The report",s2h:"Five pages and two context tooltips",
+s3e:"Decisions",s3h:"How the report was designed for use",
+repo:"View the project on GitHub",
+foot1:"A study project from Alura's BI Challenge, using public IMDb data supplied by the challenge. The Alura brand belongs to its owners.",contato:"Contact:"}};
+var TABS=[
+ {k:"capa",n:{pt:"Capa",en:"Cover"},i:["capa"],d:{pt:"Entrada do relatório, com botões para as quatro páginas de análise.",en:"Report entry, with buttons to the four analysis pages."}},
+ {k:"fat",n:{pt:"Faturamento",en:"Revenue"},i:["faturamento"],d:{pt:"Faturamento total, diretor e atores que mais faturaram, ranking dos filmes e um mapa de árvore com a participação de cada gênero. Clicar em um filme ou gênero filtra os indicadores laterais.",en:"Total revenue, top-earning director and actors, a movie ranking and a treemap of each genre's share. Clicking a movie or genre filters the side indicators."}},
+ {k:"vot",n:{pt:"Votos",en:"Votes"},i:["votos"],d:{pt:"Média geral das notas IMDb e Meta, soma de votos e rankings por nota e por quantidade de votos. Ao passar o mouse em uma barra, aparece um resumo do filme.",en:"Overall IMDb and Meta score averages, total votes and rankings by score and vote count. Hovering a bar shows a movie summary."}},
+ {k:"ato",n:{pt:"Atores",en:"Actors"},i:["atores"],d:{pt:"Ranking de nota IMDb por ator, pela média dos filmes em que atuou, e quantidade de aparições. O resumo ao passar o mouse traz faturamento, votos e notas médias.",en:"IMDb score ranking by actor, using the average of their movies, and number of appearances. The hover summary shows revenue, votes and average scores."}},
+ {k:"dir",n:{pt:"Diretores",en:"Directors"},i:["diretores"],d:{pt:"Faturamento e quantidade de filmes por diretor e os gêneros mais produzidos. Ao escolher um diretor, o painel mostra os quatro principais gêneros dele.",en:"Revenue and number of movies per director, and the most produced genres. Picking a director shows their top four genres."}},
+ {k:"dic",n:{pt:"Tooltips",en:"Tooltips"},i:["dica-filme","dica-ator"],d:{pt:"Duas páginas de dica personalizadas: uma resume o filme (notas, elenco, faturamento, votos e sinopse) e outra resume o ator.",en:"Two custom tooltip pages: one summarizes the movie (scores, cast, revenue, votes and synopsis) and the other summarizes the actor."}}];
+var DEC={pt:[["Filtros que se propagam","Clicar em um ranking ou gênero atualiza os indicadores ao lado, sem trocar de página."],
+["Contexto sob demanda","Os tooltips mostram o resumo do filme ou do ator só quando o usuário pede, e a tela principal fica limpa."],
+["Destaques por posição","Para cada posição do elenco, o relatório mostra quem tem a melhor nota, e não só o ator mais frequente."],
+["Navegação própria","Botões no rodapé substituem as abas padrão e levam o usuário pelo fluxo de análise."]],
+en:[["Filters that propagate","Clicking a ranking or genre updates the side indicators without changing page."],
+["Context on demand","Tooltips show the movie or actor summary only when asked, keeping the main screen clean."],
+["Highlights by position","For each cast position, the report shows who has the best score, not only the most frequent actor."],
+["Custom navigation","Buttons at the bottom replace the default tabs and guide the user through the analysis flow."]]};
+var lang="pt",aba="capa";
+function lerPref(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function gravaPref(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function render(){
+  document.documentElement.lang=(lang==="pt")?"pt-BR":"en";
+  document.querySelectorAll("[data-i18n]").forEach(function(el){var k=el.getAttribute("data-i18n");if(T[lang][k]!==undefined)el.textContent=T[lang][k]});
+  document.getElementById("l-pt").setAttribute("aria-pressed",lang==="pt");document.getElementById("l-en").setAttribute("aria-pressed",lang==="en");
+  document.getElementById("tabs").innerHTML=TABS.map(function(t){return '<button class="tab" role="tab" type="button" data-k="'+t.k+'" aria-selected="'+(t.k===aba)+'">'+esc(t.n[lang])+'</button>'}).join("");
+  var a=TABS.filter(function(t){return t.k===aba})[0];
+  document.getElementById("shot").innerHTML='<div class="imgs">'+a.i.map(function(n){return '<img src="../assets/alura-films/'+n+'.webp" width="1280" height="720" loading="lazy" alt="'+esc(a.n[lang])+'">'}).join("")+'</div><p>'+esc(a.d[lang])+'</p>';
+  document.getElementById("dec").innerHTML=DEC[lang].map(function(d){return '<div class="card"><h3>'+esc(d[0])+'</h3><p>'+esc(d[1])+'</p></div>'}).join("");
+}
+document.getElementById("tabs").addEventListener("click",function(e){var b=e.target.closest(".tab");if(!b)return;aba=b.getAttribute("data-k");render()});
+document.getElementById("l-pt").addEventListener("click",function(){lang="pt";gravaPref("lang","pt");render()});
+document.getElementById("l-en").addEventListener("click",function(){lang="en";gravaPref("lang","en");render()});
+document.getElementById("tema").addEventListener("click",function(){var r=document.documentElement,a=r.getAttribute("data-theme"),e=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches;
+ var n=(a?a==="dark":e)?"light":"dark";r.setAttribute("data-theme",n);gravaPref("tema",n)});
+if(lerPref("lang")==="en")lang="en";var tm=lerPref("tema");if(tm==="dark"||tm==="light")document.documentElement.setAttribute("data-theme",tm);
+render();
+</script>
+</body>
+</html>
