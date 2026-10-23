@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Portfólio de Dados e Risco</title>
+<meta name="description" content="Estudos de caso em automação de relatórios, ETL e risco de mercado.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:title" content="Dados e risco, automatizados">
+<meta property="og:description" content="Estudos de caso em automação de relatórios, ETL e risco de mercado.">
+<meta property="og:url" content="https://romeuqf.github.io/">
+<meta property="og:image" content="https://romeuqf.github.io/assets/og-home.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<style>
+/* Layout: pagina inicial em coluna unica, apresentacao e cartoes dos estudos de caso */
+:root{
+  --bg:#eceff3; --panel:#ffffff; --ink:#0d1b2a; --muted:#566275; --line:#d5dae2; --soft:#f4f6f9;
+  --accent:#a8500b; --accent-fg:#ffffff; --head:#13263d; --head-fg:#eef2f7;
+  --pos:#1b7a4b; --warn:#9a6700; --warn-bg:#fff3d6; --code:#fafbfc;
+  --f-display:"Newsreader",Georgia,serif; --f-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1118; --panel:#131b25; --ink:#e8edf3; --muted:#93a0b2; --line:#26303d; --soft:#101821;
+  --accent:#f0a35c; --accent-fg:#1a1006; --head:#1c2b3f; --head-fg:#eef2f7;
+  --pos:#5fd08e; --warn:#f0c26a; --warn-bg:#2d2412; --code:#0f161e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1118; --panel:#131b25; --ink:#e8edf3; --muted:#93a0b2; --line:#26303d; --soft:#101821;
+  --accent:#f0a35c; --accent-fg:#1a1006; --head:#1c2b3f; --head-fg:#eef2f7;
+  --pos:#5fd08e; --warn:#f0c26a; --warn-bg:#2d2412; --code:#0f161e; color-scheme:dark}
+
+html{color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-ui);line-height:1.55;
+  padding-block:20px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:40px;min-width:0}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+.id{font-family:var(--f-mono);font-size:.8rem;color:var(--muted)}
+.ctrl{display:flex;gap:8px}
+.chip{font:inherit;font-size:.8rem;font-family:var(--f-mono);padding:5px 10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:5px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.eyebrow{font-family:var(--f-mono);font-size:.74rem;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);margin:0 0 8px}
+h1{font-family:var(--f-display);font-weight:600;font-size:clamp(2.2rem,6vw,3.8rem);line-height:1.06;margin:0 0 14px;text-wrap:balance;letter-spacing:-.01em}
+h2{font-family:var(--f-display);font-weight:600;font-size:1.5rem;margin:0 0 14px}
+.lead{font-size:1.12rem;color:var(--muted);max-width:60ch;margin:0}
+.stack{display:flex;flex-wrap:wrap;gap:8px}
+.stack span{font-family:var(--f-mono);font-size:.8rem;border:1px solid var(--line);background:var(--panel);padding:4px 10px;border-radius:5px}
+a.caso{display:grid;grid-template-columns:1fr auto;gap:8px 20px;align-items:start;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px 22px;text-decoration:none;color:inherit;min-width:0}
+a.caso:hover{border-color:var(--accent)}
+a.caso h3{font-family:var(--f-display);font-size:1.4rem;margin:0 0 6px;font-weight:600}
+a.caso p{margin:0;color:var(--muted);max-width:58ch}
+a.caso .go{font-family:var(--f-mono);font-size:.85rem;color:var(--accent);white-space:nowrap}
+a.caso .tags{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+a.caso .tags span{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);background:var(--soft);padding:2px 8px;border-radius:4px}
+footer{border-top:1px solid var(--line);padding-top:18px;font-size:.88rem;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <span class="id">[SEU NOME]</span>
+    <div class="ctrl">
+      <button class="chip" id="l-pt" aria-pressed="true" type="button">PT</button>
+      <button class="chip" id="l-en" aria-pressed="false" type="button">EN</button>
+      <button class="chip" id="tema" type="button" data-i18n="tema">Tema</button>
+    </div>
+  </div>
+  <header>
+    <p class="eyebrow" data-i18n="eyebrow"></p>
+    <h1 data-i18n="h1"></h1>
+    <p class="lead" data-i18n="lead"></p>
+  </header>
+  <section>
+    <h2 data-i18n="stk"></h2>
+    <div class="stack"><span>Python</span><span>SQL</span><span>SAS</span><span>Databricks</span><span>VBA / Excel</span><span>APIs REST</span><span>ETL</span><span>pandas</span></div>
+  </section>
+  <section>
+    <h2 data-i18n="casos"></h2>
+    <a class="caso" href="dtvm/">
+      <div><h3 data-i18n="c1h"></h3><p data-i18n="c1t"></p></div>
+      <span class="go" data-i18n="ver"></span>
+      <div class="tags"><span>Python</span><span>CustomTkinter</span><span>API</span><span>VaR</span><span>Excel</span></div>
+    </a>
+  </section>
+  <footer>
+    <span data-i18n="foot1"></span>
+    <span data-i18n="foot2"></span>
+  </footer>
+</div>
+<script>
+var T={pt:{tema:"Tema",eyebrow:"Portfólio",h1:"Dados e risco, automatizados",
+lead:"Trabalho com automação de relatórios, ETL e risco de mercado em uma instituição financeira. Aqui estão estudos de caso de aplicações que construí, com demonstrações em dados fictícios.",
+stk:"Ferramentas",casos:"Estudos de caso",c1h:"Relatórios de risco que se geram sozinhos",
+c1t:"Aplicação em Python que executa, coleta e consolida relatórios de VaR, PV01, Duration e outros para dezenas de carteiras de fundos. Inclui demo interativa.",ver:"Ver caso",
+foot1:"Os projetos descrevem trabalho real. Nenhum dado, nome de carteira, endereço ou credencial da instituição é exibido.",foot2:"Contato: [SEU E-MAIL] · [SEU LINKEDIN]"},
+en:{tema:"Theme",eyebrow:"Portfolio",h1:"Data and risk, automated",
+lead:"I work on report automation, ETL and market risk at a financial institution. Here are case studies of applications I built, with demos on synthetic data.",
+stk:"Tools",casos:"Case studies",c1h:"Risk reports that build themselves",
+c1t:"A Python application that runs, collects and consolidates VaR, PV01, Duration and other reports for dozens of fund portfolios. Includes an interactive demo.",ver:"View case",
+foot1:"Projects describe real work. No data, portfolio names, addresses or credentials from the institution are shown.",foot2:"Contact: [YOUR EMAIL] · [YOUR LINKEDIN]"}};
+var lang="pt";
+function lerPref(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function gravaPref(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function aplica(){document.documentElement.lang=(lang==="pt")?"pt-BR":"en";
+ document.querySelectorAll("[data-i18n]").forEach(function(el){var k=el.getAttribute("data-i18n");if(T[lang][k]!==undefined)el.textContent=T[lang][k]});
+ document.getElementById("l-pt").setAttribute("aria-pressed",lang==="pt");document.getElementById("l-en").setAttribute("aria-pressed",lang==="en")}
+document.getElementById("l-pt").addEventListener("click",function(){lang="pt";gravaPref("lang","pt");aplica()});
+document.getElementById("l-en").addEventListener("click",function(){lang="en";gravaPref("lang","en");aplica()});
+document.getElementById("tema").addEventListener("click",function(){var r=document.documentElement,a=r.getAttribute("data-theme"),e=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches;
+ var n=(a?a==="dark":e)?"light":"dark";r.setAttribute("data-theme",n);gravaPref("tema",n)});
+if(lerPref("lang")==="en")lang="en";var tm=lerPref("tema");if(tm==="dark"||tm==="light")document.documentElement.setAttribute("data-theme",tm);
+aplica();
+</script>
+</body>
+</html>

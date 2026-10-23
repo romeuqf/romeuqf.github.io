@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Relatórios de risco que se geram sozinhos</title>
+<meta name="description" content="Estudo de caso: automação de relatórios de risco de mercado em Python, com demo interativa de VaR paramétrico.">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:title" content="Relatórios de risco que se geram sozinhos">
+<meta property="og:description" content="Estudo de caso em Python: execução, coleta e consolidação de relatórios de risco de mercado. Com demo interativa de VaR paramétrico.">
+<meta property="og:url" content="https://romeuqf.github.io/dtvm/">
+<meta property="og:image" content="https://romeuqf.github.io/assets/og-dtvm.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<style>
+/* Layout: pagina unica em coluna, estudo de caso no topo e demo interativa no meio, estilo mesa de risco */
+:root{
+  --bg:#eceff3; --panel:#ffffff; --ink:#0d1b2a; --muted:#566275; --line:#d5dae2; --soft:#f4f6f9;
+  --accent:#a8500b; --accent-fg:#ffffff; --head:#13263d; --head-fg:#eef2f7;
+  --pos:#1b7a4b; --warn:#9a6700; --warn-bg:#fff3d6; --code:#fafbfc;
+  --f-display:"Newsreader",Georgia,serif; --f-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1118; --panel:#131b25; --ink:#e8edf3; --muted:#93a0b2; --line:#26303d; --soft:#101821;
+  --accent:#f0a35c; --accent-fg:#1a1006; --head:#1c2b3f; --head-fg:#eef2f7;
+  --pos:#5fd08e; --warn:#f0c26a; --warn-bg:#2d2412; --code:#0f161e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1118; --panel:#131b25; --ink:#e8edf3; --muted:#93a0b2; --line:#26303d; --soft:#101821;
+  --accent:#f0a35c; --accent-fg:#1a1006; --head:#1c2b3f; --head-fg:#eef2f7;
+  --pos:#5fd08e; --warn:#f0c26a; --warn-bg:#2d2412; --code:#0f161e; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);line-height:1.55;
+  padding-block:20px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:44px;min-width:0}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+.top .id{font-family:var(--f-mono);font-size:.8rem;color:var(--muted)}
+.ctrl{display:flex;gap:8px}
+.chip{font:inherit;font-size:.8rem;font-family:var(--f-mono);padding:5px 10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:5px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+h1{font-family:var(--f-display);font-weight:600;font-size:clamp(2rem,5.4vw,3.4rem);line-height:1.08;margin:0 0 14px;text-wrap:balance;letter-spacing:-.01em}
+h2{font-family:var(--f-display);font-weight:600;font-size:1.7rem;line-height:1.15;margin:0 0 6px;text-wrap:balance}
+.lead{font-size:1.1rem;color:var(--muted);max-width:62ch;margin:0}
+.eyebrow{font-family:var(--f-mono);font-size:.74rem;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);margin:0 0 8px}
+.sec{display:flex;flex-direction:column;gap:18px;min-width:0}
+.sec p.t{margin:0;max-width:66ch;color:var(--muted)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0;border:1px solid var(--line);background:var(--panel);border-radius:8px}
+.fact{padding:16px 18px;border-right:1px solid var(--line);min-width:0}
+.fact:last-child{border-right:0}
+.fact b{display:block;font-family:var(--f-mono);font-weight:500;font-size:1.9rem;line-height:1.1}
+.fact span{color:var(--muted);font-size:.88rem}
+@media (max-width:640px){.fact{border-right:0;border-bottom:1px solid var(--line)}.fact:last-child{border-bottom:0}}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px;min-width:0}
+.card h3{margin:0 0 6px;font-size:1rem}
+.card p{margin:0;color:var(--muted);font-size:.93rem}
+.card .tag{font-family:var(--f-mono);font-size:.72rem;color:var(--accent)}
+.diagram{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;overflow-x:auto}
+.diagram svg{min-width:640px;width:100%;height:auto;display:block}
+.bx{fill:var(--soft);stroke:var(--line);stroke-width:1.2}
+.bx.k{fill:var(--head);stroke:var(--head)}
+.dt{fill:var(--ink);font:500 13px var(--f-ui)}
+.dt.k{fill:var(--head-fg)}
+.ds{fill:var(--muted);font:400 11px var(--f-ui)}
+.ds.k{fill:#b8c5d6}
+.ar{stroke:var(--muted);stroke-width:1.4;fill:none}
+.arh{fill:var(--muted)}
+/* demo */
+.demo{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.dbar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--head);color:var(--head-fg)}
+.dbar b{font-weight:600}
+.fict{font-family:var(--f-mono);font-size:.72rem;background:var(--warn-bg);color:var(--warn);padding:3px 8px;border-radius:4px}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px 16px;padding:16px 14px;border-bottom:1px solid var(--line);align-items:end}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.78rem;color:var(--muted);font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.05em}
+.in{font:inherit;font-size:.95rem;font-family:var(--f-ui);text-transform:none;letter-spacing:0;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
+.go{font:inherit;font-weight:600;padding:10px 16px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-fg);cursor:pointer}
+.go[disabled]{opacity:.55;cursor:progress}
+.params{grid-column:1/-1;font-family:var(--f-mono);font-size:.78rem;color:var(--muted)}
+.prog{height:6px;background:var(--soft)}
+.prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s linear}
+.status{padding:8px 14px;font-size:.82rem;color:var(--muted);font-family:var(--f-mono);border-bottom:1px solid var(--line)}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px 0}
+.tab{font:inherit;font-size:.88rem;padding:7px 12px;border:1px solid var(--line);border-bottom:0;background:var(--soft);color:var(--muted);border-radius:6px 6px 0 0;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--panel);color:var(--ink);font-weight:600;position:relative;top:1px}
+.pane{border-top:1px solid var(--line);padding:14px;min-width:0}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px;max-height:430px;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-size:.86rem;font-variant-numeric:tabular-nums}
+th{background:var(--head);color:var(--head-fg);font-weight:500;text-align:right;padding:8px 10px;white-space:nowrap;position:sticky;top:0}
+th:first-child,td:first-child{text-align:left}
+td{padding:7px 10px;text-align:right;border-top:1px solid var(--line);white-space:nowrap}
+td.l{text-align:left}
+tr.sub td{background:var(--soft);font-weight:600}
+th.g{text-align:center;border-left:1px solid #2c4262}
+td.neg{color:var(--warn)}
+.xl th{background:#7c3aed;color:#fff}
+.empty{padding:30px 14px;color:var(--muted);text-align:center}
+.log{font-family:var(--f-mono);font-size:.76rem;background:var(--code);border:1px solid var(--line);border-radius:6px;padding:10px;max-height:140px;overflow-y:auto;color:var(--muted);margin:0 14px 14px;white-space:pre-wrap}
+.seg{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.msg{display:grid;grid-template-columns:90px 1fr;gap:8px;padding:8px 0;border-top:1px solid var(--line);font-size:.88rem}
+.msg:first-child{border-top:0}
+.msg b{font-family:var(--f-mono);font-size:.74rem;color:var(--warn)}
+.note{font-size:.84rem;color:var(--muted);margin:10px 0 0}
+.bar{display:inline-block;height:8px;background:var(--accent);border-radius:2px;vertical-align:middle;margin-right:6px}
+footer{border-top:1px solid var(--line);padding-top:18px;font-size:.88rem;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.prog i{transition:none}}
+html{color-scheme:light}body{margin:0}</style>
+
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="id" id="nome" href="../" style="text-decoration:none;color:inherit">&larr; [SEU NOME] · Dados e Risco</a>
+    <div class="ctrl">
+      <button class="chip" id="l-pt" aria-pressed="true" type="button">PT</button>
+      <button class="chip" id="l-en" aria-pressed="false" type="button">EN</button>
+      <button class="chip" id="tema" type="button" data-i18n="tema">Tema</button>
+    </div>
+  </div>
+
+  <header class="sec">
+    <p class="eyebrow" data-i18n="eyebrow"></p>
+    <h1 data-i18n="h1"></h1>
+    <p class="lead" data-i18n="lead"></p>
+  </header>
+
+  <div class="facts">
+    <div class="fact"><b>8</b><span data-i18n="f1"></span></div>
+    <div class="fact"><b>30+</b><span data-i18n="f2"></span></div>
+    <div class="fact"><b>2</b><span data-i18n="f3"></span></div>
+    <div class="fact"><b>0</b><span data-i18n="f4"></span></div>
+  </div>
+
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s1e"></p><h2 data-i18n="s1h"></h2></div>
+    <div class="cols">
+      <div class="card"><h3 data-i18n="p1h"></h3><p data-i18n="p1t"></p></div>
+      <div class="card"><h3 data-i18n="p2h"></h3><p data-i18n="p2t"></p></div>
+      <div class="card"><h3 data-i18n="p3h"></h3><p data-i18n="p3t"></p></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="demoe"></p><h2 data-i18n="demoh"></h2>
+    <p class="t" style="margin:6px 0 0" data-i18n="demot"></p></div>
+    <div class="demo" id="demo">
+      <div class="dbar"><span><b data-i18n="dtitle"></b></span><span class="fict" data-i18n="fict"></span></div>
+      <div class="form">
+        <label class="f"><span data-i18n="ldata"></span><input class="in" id="data" readonly></label>
+        <label class="f"><span data-i18n="lport"></span><select class="in" id="port"></select></label>
+        <button class="go" id="run" type="button" data-i18n="run"></button>
+        <div class="params" data-i18n="params"></div>
+      </div>
+      <div class="prog"><i id="pbar"></i></div>
+      <div class="status" id="status" data-i18n="ready"></div>
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="pane" id="pane"></div>
+      <pre class="log" id="log" aria-live="polite"></pre>
+    </div>
+    <p class="note" data-i18n="demonote"></p>
+  </section>
+
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s2e"></p><h2 data-i18n="s2h"></h2></div>
+    <div class="diagram">
+      <svg viewBox="0 0 760 300" role="img" aria-labelledby="dg-t">
+        <title id="dg-t" data-i18n="dgtitle"></title>
+        <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="arh"/></marker></defs>
+        <rect class="bx k" x="10" y="20" width="170" height="64" rx="6"/>
+        <text class="dt k" x="95" y="48" text-anchor="middle" data-i18n="d1a"></text>
+        <text class="ds k" x="95" y="66" text-anchor="middle" data-i18n="d1b"></text>
+        <rect class="bx" x="295" y="20" width="170" height="64" rx="6"/>
+        <text class="dt" x="380" y="48" text-anchor="middle" data-i18n="d2a"></text>
+        <text class="ds" x="380" y="66" text-anchor="middle" data-i18n="d2b"></text>
+        <rect class="bx" x="580" y="20" width="170" height="64" rx="6"/>
+        <text class="dt" x="665" y="48" text-anchor="middle" data-i18n="d3a"></text>
+        <text class="ds" x="665" y="66" text-anchor="middle" data-i18n="d3b"></text>
+        <rect class="bx" x="295" y="130" width="170" height="64" rx="6"/>
+        <text class="dt" x="380" y="158" text-anchor="middle" data-i18n="d4a"></text>
+        <text class="ds" x="380" y="176" text-anchor="middle" data-i18n="d4b"></text>
+        <rect class="bx" x="10" y="226" width="170" height="64" rx="6"/>
+        <text class="dt" x="95" y="254" text-anchor="middle" data-i18n="d5a"></text>
+        <text class="ds" x="95" y="272" text-anchor="middle" data-i18n="d5b"></text>
+        <rect class="bx" x="295" y="226" width="170" height="64" rx="6"/>
+        <text class="dt" x="380" y="254" text-anchor="middle" data-i18n="d6a"></text>
+        <text class="ds" x="380" y="272" text-anchor="middle" data-i18n="d6b"></text>
+        <rect class="bx k" x="580" y="226" width="170" height="64" rx="6"/>
+        <text class="dt k" x="665" y="254" text-anchor="middle" data-i18n="d7a"></text>
+        <text class="ds k" x="665" y="272" text-anchor="middle" data-i18n="d7b"></text>
+        <path class="ar" d="M180 52H293" marker-end="url(#ah)"/>
+        <path class="ar" d="M465 52H578" marker-end="url(#ah)"/>
+        <path class="ar" d="M380 84V128" marker-end="url(#ah)"/>
+        <path class="ar" d="M380 194V224" marker-end="url(#ah)"/>
+        <path class="ar" d="M293 258H182" marker-end="url(#ah)"/>
+        <path class="ar" d="M465 258H578" marker-end="url(#ah)"/>
+      </svg>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s3e"></p><h2 data-i18n="s3h"></h2></div>
+    <div class="cols" id="dec"></div>
+  </section>
+
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s4e"></p><h2 data-i18n="s4h"></h2>
+    <p class="t" style="margin-top:6px" data-i18n="s4t"></p></div>
+  </section>
+
+  <footer>
+    <span data-i18n="foot1"></span>
+    <span data-i18n="foot2"></span>
+  </footer>
+</div>
+
+<script>
+/* ---------- Textos PT/EN ---------- */
+var T = {
+pt:{tema:"Tema",eyebrow:"Estudo de caso · Risco de Mercado",
+h1:"Relatórios de risco que se geram sozinhos, do pedido à API ao Excel consolidado",
+lead:"Aplicação em Python que automatiza a execução, a coleta e a consolidação de relatórios de risco de mercado para dezenas de carteiras de fundos de uma instituição financeira cooperativa.",
+f1:"rotinas de risco (VaR, PV01, Duration, Estresse, Sharpe e outras)",f2:"carteiras processadas por execução, com confirmação prévia",f3:"horizontes de VaR por fundo, rodados e comparados lado a lado",f4:"planilhas montadas à mão",
+s1e:"O problema",s1h:"Muita carteira, muito parâmetro, pouca margem para erro",
+p1h:"Parâmetros diferentes por fundo",p1t:"Cada carteira tem horizonte, nível de confiança e benchmark próprios. Rodar tudo manualmente na ferramenta de risco era lento e fácil de errar.",
+p2h:"Resultados espalhados",p2t:"Os números vinham em telas e arquivos separados. Consolidar para o relatório final exigia copiar e colar entre planilhas.",
+p3h:"API instável em horários de pico",p3t:"Respostas lentas, status que mudavam de nome e caminhos de pasta longos demais no Windows derrubavam execuções longas.",
+demoe:"Demonstração",demoh:"Rode um VaR paramétrico aqui mesmo",
+demot:"Reproduz o fluxo da rotina Perfil Mensal: cada fundo roda duas vezes, com horizonte de 21 e de 1 dia. O cálculo é feito no seu navegador: EWMA com fator de decaimento 0,94 e confiança de 95%.",
+dtitle:"VaR Perfil Mensal",fict:"DADOS FICTÍCIOS",ldata:"Data de referência",lport:"Portfolio",run:"Executar",
+params:"Modelo: EWMA | Fator: 0,94 | Janela: 21 | Confiança: 95% | Horizontes: 21 e 1 dia",
+ready:"Pronto. Escolha o portfolio e clique em Executar.",
+all:"Todos",funds:"fundos",
+tTotal:"Total",tI21:"Instrumento (h=21)",tI1:"Instrumento (h=1)",tMsg:"Mensagens",tXls:"Excel consolidado",
+cPort:"Portfolio",cMtm:"MtM",cVar:"VaR",cVarA:"VaR Anual",cEf:"Ef. Div.",cInst:"Instrumento",cComp:"VaR Componente",cH21:"Horizonte 21",cH1:"Horizonte 1",
+empty:"Nenhum resultado ainda. Execute para ver os números.",
+running:"Executando",done:"Concluído",calls:"chamadas",
+xlsNote:"Prévia das abas do arquivo que o app grava no disco. Na ferramenta real, o download vai direto para a pasta do projeto.",
+sh1:"Total",sh2:"Por Instrumento Horizonte 21",sh3:"Por Instrumento Horizonte 1",
+demonote:"Todas as carteiras, instrumentos e valores desta demonstração são inventados. A fórmula do VaR é a mesma ideia usada na prática: VaR de 1 dia multiplicado pela raiz do horizonte.",
+s2e:"Arquitetura",s2h:"Um molde só, repetido por rotina",
+dgtitle:"Fluxo da aplicação: interface, rotinas, cliente de API, configuração central, arquivos e consolidação final",
+d1a:"Interface desktop",d1b:"seleção, confirmação, progresso",d2a:"Rotinas",d2b:"VaR, PV01, Duration, Estresse…",d3a:"API de risco",d3b:"relatórios sob demanda",
+d4a:"Cliente de API",d4b:"token, tentativas, tempo limite",d5a:"Configuração central",d5b:"parâmetros por carteira",d6a:"JSON bruto e consolidado",d6b:"por carteira, rotina e data",d7a:"Consolidação final",d7b:"Excel com várias abas",
+s3e:"Decisões e lições",s3h:"O que deu trabalho e como foi resolvido",
+s4e:"Próximos passos",s4h:"Mais aplicações no mesmo padrão",s4t:"Já existem versões para outras entidades do grupo e estão em preparação os estudos de caso de conferência de balancetes e de cargas de dados, com a mesma estrutura desta página.",
+foot1:"Este portfólio descreve um trabalho real. Nenhum dado, nome de carteira, endereço ou credencial da instituição é exibido.",foot2:"Contato: [SEU E-MAIL] · [SEU LINKEDIN]"},
+en:{tema:"Theme",eyebrow:"Case study · Market Risk",
+h1:"Risk reports that build themselves, from API request to consolidated Excel",
+lead:"A Python application that automates running, collecting and consolidating market risk reports for dozens of fund portfolios at a cooperative financial institution.",
+f1:"risk routines (VaR, PV01, Duration, Stress, Sharpe and more)",f2:"portfolios processed per run, with a confirmation step",f3:"VaR horizons per fund, run and compared side by side",f4:"spreadsheets assembled by hand",
+s1e:"The problem",s1h:"Many portfolios, many parameters, little room for error",
+p1h:"Different parameters per fund",p1t:"Each portfolio has its own horizon, confidence level and benchmark. Running everything by hand in the risk tool was slow and error-prone.",
+p2h:"Scattered results",p2t:"Numbers came in separate screens and files. Consolidating for the final report meant copying and pasting between spreadsheets.",
+p3h:"An API that struggles at peak hours",p3t:"Slow responses, status values that changed names and Windows paths that were too long broke long runs.",
+demoe:"Demo",demoh:"Run a parametric VaR right here",
+demot:"It reproduces the Monthly Profile routine: each fund runs twice, with a 21-day and a 1-day horizon. The math runs in your browser: EWMA with a 0.94 decay factor at 95% confidence.",
+dtitle:"VaR Monthly Profile",fict:"SYNTHETIC DATA",ldata:"Reference date",lport:"Portfolio",run:"Run",
+params:"Model: EWMA | Decay: 0.94 | Window: 21 | Confidence: 95% | Horizons: 21 and 1 day",
+ready:"Ready. Pick a portfolio and click Run.",
+all:"All",funds:"funds",
+tTotal:"Total",tI21:"Instrument (h=21)",tI1:"Instrument (h=1)",tMsg:"Messages",tXls:"Consolidated Excel",
+cPort:"Portfolio",cMtm:"MtM",cVar:"VaR",cVarA:"Annual VaR",cEf:"Div. effect",cInst:"Instrument",cComp:"Component VaR",cH21:"Horizon 21",cH1:"Horizon 1",
+empty:"No results yet. Run to see the numbers.",
+running:"Running",done:"Done",calls:"calls",
+xlsNote:"Preview of the sheets the app writes to disk. In the real tool the file goes straight to the project folder.",
+sh1:"Total",sh2:"By Instrument Horizon 21",sh3:"By Instrument Horizon 1",
+demonote:"Every portfolio, instrument and value in this demo is made up. The VaR formula follows the same idea used in practice: 1-day VaR times the square root of the horizon.",
+s2e:"Architecture",s2h:"One template, repeated per routine",
+dgtitle:"Application flow: interface, routines, API client, central config, files and final consolidation",
+d1a:"Desktop interface",d1b:"selection, confirmation, progress",d2a:"Routines",d2b:"VaR, PV01, Duration, Stress…",d3a:"Risk API",d3b:"on-demand reports",
+d4a:"API client",d4b:"token, retries, timeout",d5a:"Central config",d5b:"parameters per portfolio",d6a:"Raw and consolidated JSON",d6b:"per portfolio, routine and date",d7a:"Final consolidation",d7b:"multi-sheet Excel",
+s3e:"Decisions and lessons",s3h:"What was hard and how it was solved",
+s4e:"What is next",s4h:"More applications on the same pattern",s4t:"Versions for other group entities already exist, and case studies for balance sheet checks and data loads are being prepared with the same structure as this page.",
+foot1:"This portfolio describes real work. No data, portfolio names, addresses or credentials from the institution are shown.",foot2:"Contact: [YOUR EMAIL] · [YOUR LINKEDIN]"}
+};
+var DEC = {
+pt:[["Configuração central","Cada carteira tem seu horizonte, confiança e benchmark em um só lugar. Antes de qualquer chamada, uma janela de confirmação mostra exatamente o que vai rodar."],
+["Dois horizontes numa execução","No Perfil Mensal, cada fundo roda com 21 e com 1 dia. O resultado sai lado a lado na tela e em abas separadas no Excel."],
+["Status que mudam de nome","A API devolvia SUCESSO em alguns casos e CONCLUIDO em outros. O código passou a aceitar o conjunto de status válidos, e não um valor único."],
+["Caminhos longos no Windows","Pastas aninhadas em nuvem estouravam o limite de caminho. Um utilitário aplica o prefixo de caminho longo na hora de gravar."],
+["Tempo limite sem perder o relatório","Se o POST expira, o app compara o estado anterior e consulta a lista de relatórios em até cinco tentativas, em vez de falhar."],
+["Datas e números no padrão local","Datas em dia útil anterior, com regra específica quando o cálculo exige D-2, e valores sempre no formato brasileiro."]],
+en:[["Central configuration","Each portfolio keeps its horizon, confidence and benchmark in one place. Before any call, a confirmation window shows exactly what will run."],
+["Two horizons in one run","In the Monthly Profile, each fund runs with 21 and 1 day. Results appear side by side on screen and in separate Excel sheets."],
+["Status values that change names","The API returned SUCCESS in some cases and DONE in others. The code now accepts the set of valid statuses instead of a single value."],
+["Long paths on Windows","Deeply nested cloud folders hit the path length limit. A helper applies the long path prefix when writing files."],
+["Timeouts without losing the report","If the POST times out, the app compares the earlier state and polls the report list up to five times instead of failing."],
+["Local dates and numbers","Previous business day dates, with a specific D-2 rule where the calculation needs it, and values always in Brazilian format."]]
+};
+/* ---------- Estado e utilidades ---------- */
+var lang="pt", ultimo=null, aba="tTotal", rodando=false, xlsAba=0;
+function t(k){return (T[lang][k]!==undefined)?T[lang][k]:k}
+function fmt(n){return n.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
+function lerPref(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function gravaPref(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+
+/* ---------- Dados fictícios e cálculo ---------- */
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+var INSTR=[
+ {id:"LTN",vol:.0009,beta:.75},{id:"NTN-B",vol:.0016,beta:.8},{id:"LFT",vol:.0002,beta:.3},
+ {id:"CDB",vol:.0003,beta:.35},{id:"Debêntures",vol:.0008,beta:.55},{id:"Futuro DI",vol:.0020,beta:.85},{id:"Ações",vol:.0120,beta:.5}];
+var FUNDOS=[
+ {cod:"0101",nome:"Fundo Alfa Renda Fixa Curto",mix:{"LTN":.30,"LFT":.45,"CDB":.25}},
+ {cod:"0102",nome:"Fundo Beta Referenciado DI",mix:{"LFT":.55,"CDB":.30,"Debêntures":.15}},
+ {cod:"0103",nome:"Fundo Gama Inflação",mix:{"NTN-B":.60,"LTN":.15,"Debêntures":.25}},
+ {cod:"0104",nome:"Fundo Delta Multimercado",mix:{"LTN":.20,"Futuro DI":.25,"Ações":.25,"CDB":.30}},
+ {cod:"0105",nome:"Fundo Épsilon Longo Prazo",mix:{"NTN-B":.45,"LTN":.25,"Futuro DI":.15,"LFT":.15}},
+ {cod:"0106",nome:"Fundo Zeta Crédito Privado",mix:{"Debêntures":.50,"CDB":.30,"LFT":.20}}];
+var MTM={"0101":84200000,"0102":132500000,"0103":61800000,"0104":47300000,"0105":98600000,"0106":72400000};
+var COV=null;
+function construirCov(){
+  var N=252,L=.94,n=INSTR.length,rnd=mulberry(20261022),g=function(){var u=rnd()||1e-9,v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)};
+  var S=[],i,j,d,f,r;
+  for(i=0;i<n;i++){S.push(new Array(n).fill(0))}
+  for(d=0;d<N;d++){
+    f=g(); r=INSTR.map(function(x){return x.vol*(x.beta*f+Math.sqrt(1-x.beta*x.beta)*g())});
+    for(i=0;i<n;i++)for(j=0;j<n;j++){S[i][j]=(d===0)?r[i]*r[j]:L*S[i][j]+(1-L)*r[i]*r[j]}
+  }
+  return S;
+}
+function calcFundo(f,h){
+  var S=COV,n=INSTR.length,Z=1.645,mtm=MTM[f.cod],w=INSTR.map(function(x){return f.mix[x.id]||0});
+  var Sw=w.map(function(_,i){var s=0;for(var j=0;j<n;j++)s+=S[i][j]*w[j];return s});
+  var v=0;for(var i=0;i<n;i++)v+=w[i]*Sw[i];
+  var sp=Math.sqrt(v),sh=Math.sqrt(h),varP=Z*sp*sh*mtm,varAnual=Z*sp*Math.sqrt(252)*mtm,soma=0,linhas=[];
+  for(var k=0;k<n;k++){
+    if(!w[k])continue;
+    var mi=w[k]*mtm,vi=Z*Math.sqrt(S[k][k])*sh*mi;
+    soma+=vi;
+    linhas.push({instr:INSTR[k].id,mtm:mi,v:vi,va:Z*Math.sqrt(S[k][k])*Math.sqrt(252)*mi,comp:Z*sh*mtm*w[k]*Sw[k]/sp});
+  }
+  return {total:{mtm:mtm,v:varP,va:varAnual,ef:varP-soma},inst:linhas};
+}
+var MSGS=[{c:"0104",p:"AVISO",m:{pt:"Preço de Futuro DI com defasagem de um dia. Valor mantido.",en:"DI Future price is one day stale. Value kept."}},
+ {c:"0106",p:"AVISO",m:{pt:"Debênture sem marcação a mercado própria. Usada curva de referência.",en:"Debenture has no own mark-to-market. Reference curve used."}},
+ {c:"0105",p:"INFO",m:{pt:"Vértice de 10 anos interpolado entre dois pontos do catálogo.",en:"10-year vertex interpolated between two catalog points."}}];
+
+/* ---------- Data de referência: dia útil anterior ---------- */
+function d1util(){var d=new Date();d.setDate(d.getDate()-1);while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()-1);
+  return ("0"+d.getDate()).slice(-2)+"/"+("0"+(d.getMonth()+1)).slice(-2)+"/"+d.getFullYear()}
+
+/* ---------- Renderização ---------- */
+function aplicaTextos(){
+  document.documentElement.lang=(lang==="pt")?"pt-BR":"en";
+  document.querySelectorAll("[data-i18n]").forEach(function(el){var k=el.getAttribute("data-i18n");if(T[lang][k]!==undefined)el.textContent=T[lang][k]});
+  document.getElementById("l-pt").setAttribute("aria-pressed",lang==="pt");
+  document.getElementById("l-en").setAttribute("aria-pressed",lang==="en");
+  document.getElementById("dec").innerHTML=DEC[lang].map(function(d){return '<div class="card"><h3>'+esc(d[0])+'</h3><p>'+esc(d[1])+'</p></div>'}).join("");
+  montaPortSelect();desenhaAbas();desenhaPane();
+}
+function montaPortSelect(){
+  var sel=document.getElementById("port"),atual=sel.value||"ALL";
+  sel.innerHTML='<option value="ALL">'+esc(t("all"))+' ('+FUNDOS.length+' '+esc(t("funds"))+')</option>'+FUNDOS.map(function(f){return '<option value="'+f.cod+'">'+f.cod+' - '+esc(f.nome)+'</option>'}).join("");
+  sel.value=atual;
+}
+function desenhaAbas(){
+  var ks=["tTotal","tI21","tI1","tMsg","tXls"];
+  document.getElementById("tabs").innerHTML=ks.map(function(k){return '<button class="tab" role="tab" type="button" data-k="'+k+'" aria-selected="'+(k===aba)+'">'+esc(t(k))+'</button>'}).join("");
+}
+function tabela(cab,linhas){
+  return '<div class="tw"><table><thead><tr>'+cab+'</tr></thead><tbody>'+linhas+'</tbody></table></div>';
+}
+function desenhaPane(){
+  var p=document.getElementById("pane");
+  if(!ultimo){p.innerHTML='<div class="empty">'+esc(t("empty"))+'</div>';return}
+  var R=ultimo,h;
+  if(aba==="tTotal"){
+    var cab='<th>'+t("cPort")+'</th><th>'+t("cMtm")+'</th><th class="g">'+t("cVar")+' (h=21)</th><th>'+t("cVarA")+' (h=21)</th><th>'+t("cEf")+' (h=21)</th><th class="g">'+t("cVar")+' (h=1)</th><th>'+t("cVarA")+' (h=1)</th><th>'+t("cEf")+' (h=1)</th>';
+    p.innerHTML=tabela(cab,R.map(function(r){return '<tr><td class="l">'+r.f.cod+' - '+esc(r.f.nome)+'</td><td>'+fmt(r.h21.total.mtm)+'</td><td>'+fmt(r.h21.total.v)+'</td><td>'+fmt(r.h21.total.va)+'</td><td class="neg">'+fmt(r.h21.total.ef)+'</td><td>'+fmt(r.h1.total.v)+'</td><td>'+fmt(r.h1.total.va)+'</td><td class="neg">'+fmt(r.h1.total.ef)+'</td></tr>'}).join(""));
+  }else if(aba==="tI21"||aba==="tI1"){
+    h=(aba==="tI21")?"h21":"h1";
+    var c2='<th>'+t("cPort")+'</th><th>'+t("cInst")+'</th><th>'+t("cMtm")+'</th><th>'+t("cVar")+'</th><th>'+t("cVarA")+'</th><th>'+t("cComp")+'</th>',L="";
+    R.forEach(function(r){r[h].inst.forEach(function(i){L+='<tr><td class="l">'+r.f.cod+'</td><td class="l">'+esc(i.instr)+'</td><td>'+fmt(i.mtm)+'</td><td>'+fmt(i.v)+'</td><td>'+fmt(i.va)+'</td><td>'+fmt(i.comp)+'</td></tr>'})});
+    p.innerHTML=tabela(c2,L);
+  }else if(aba==="tMsg"){
+    var cods=R.map(function(r){return r.f.cod}),ms=MSGS.filter(function(m){return cods.indexOf(m.c)>-1});
+    p.innerHTML=ms.length?ms.map(function(m){return '<div class="msg"><b>'+m.p+'</b><span>'+m.c+': '+esc(m.m[lang])+'</span></div>'}).join(""):'<div class="empty">—</div>';
+  }else{
+    var nomes=[t("sh1"),t("sh2"),t("sh3")],seg='<div class="seg">'+nomes.map(function(n,i){return '<button class="chip" type="button" data-x="'+i+'" aria-pressed="'+(i===xlsAba)+'">'+esc(n)+'</button>'}).join("")+'</div>',corpo;
+    if(xlsAba===0){
+      corpo='<div class="tw xl"><table><thead><tr><th>Portfolio</th><th>MtM</th><th>VaR (h=21)</th><th>VaR Anual (h=21)</th><th>Ef.Div (h=21)</th><th>VaR (h=1)</th><th>VaR Anual (h=1)</th><th>Ef.Div (h=1)</th></tr></thead><tbody>'+R.map(function(r){return '<tr><td class="l">'+r.f.cod+' - '+esc(r.f.nome)+'</td><td>'+fmt(r.h21.total.mtm)+'</td><td>'+fmt(r.h21.total.v)+'</td><td>'+fmt(r.h21.total.va)+'</td><td>'+fmt(r.h21.total.ef)+'</td><td>'+fmt(r.h1.total.v)+'</td><td>'+fmt(r.h1.total.va)+'</td><td>'+fmt(r.h1.total.ef)+'</td></tr>'}).join("")+'</tbody></table></div>';
+    }else{
+      h=(xlsAba===1)?"h21":"h1";var L2="";
+      R.forEach(function(r){r[h].inst.forEach(function(i){L2+='<tr><td class="l">'+r.f.cod+' - '+esc(r.f.nome)+'</td><td class="l">'+esc(i.instr)+'</td><td>'+fmt(i.mtm)+'</td><td>'+fmt(i.v)+'</td><td>'+fmt(i.va)+'</td><td>'+fmt(i.comp)+'</td></tr>'})});
+      corpo='<div class="tw xl"><table><thead><tr><th>Portfolio</th><th>Instrumento</th><th>MtM</th><th>VaR</th><th>VaR Anual</th><th>VaR Componente</th></tr></thead><tbody>'+L2+'</tbody></table></div>';
+    }
+    p.innerHTML=seg+corpo+'<p class="note">'+esc(t("xlsNote"))+'</p>';
+  }
+}
+function log(s){var l=document.getElementById("log");l.textContent+=s+"\n";l.scrollTop=l.scrollHeight}
+
+/* ---------- Execução simulada ---------- */
+async function executar(){
+  if(rodando)return;rodando=true;
+  var btn=document.getElementById("run"),st=document.getElementById("status"),pb=document.getElementById("pbar");
+  btn.disabled=true;document.getElementById("log").textContent="";ultimo=null;desenhaPane();
+  var sel=document.getElementById("port").value,lista=(sel==="ALL")?FUNDOS:FUNDOS.filter(function(f){return f.cod===sel});
+  var total=lista.length*2,n=0,out=[];
+  if(!COV)COV=construirCov();
+  log("VaR Perfil Mensal | "+document.getElementById("data").value+" | "+lista.length+" x 2 = "+total+" "+t("calls"));
+  for(var i=0;i<lista.length;i++){
+    var f=lista[i],par={f:f};
+    for(var hh=0;hh<2;hh++){
+      var h=hh===0?21:1;n++;
+      st.textContent=t("running")+" ["+n+"/"+total+"] "+f.cod+" (h="+h+")...";
+      log("["+n+"/"+total+"] POST "+f.cod+" h="+h+" conf=95");
+      await sleep(260);
+      par[h===21?"h21":"h1"]=calcFundo(f,h);
+      pb.style.width=Math.round(n/total*100)+"%";
+      log("    status: SUCESSO");
+    }
+    out.push(par);
+  }
+  ultimo=out;st.textContent=t("done")+" - "+total+" "+t("calls");
+  btn.disabled=false;rodando=false;desenhaPane();
+}
+
+/* ---------- Eventos ---------- */
+document.getElementById("data").value=d1util();
+document.getElementById("run").addEventListener("click",executar);
+document.getElementById("tabs").addEventListener("click",function(e){var b=e.target.closest(".tab");if(!b)return;aba=b.getAttribute("data-k");desenhaAbas();desenhaPane()});
+document.getElementById("pane").addEventListener("click",function(e){var b=e.target.closest("[data-x]");if(!b)return;xlsAba=+b.getAttribute("data-x");desenhaPane()});
+document.getElementById("l-pt").addEventListener("click",function(){lang="pt";gravaPref("lang","pt");aplicaTextos()});
+document.getElementById("l-en").addEventListener("click",function(){lang="en";gravaPref("lang","en");aplicaTextos()});
+document.getElementById("tema").addEventListener("click",function(){
+  var r=document.documentElement,atual=r.getAttribute("data-theme"),escuro=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches;
+  var novo=(atual?atual==="dark":escuro)?"light":"dark";r.setAttribute("data-theme",novo);gravaPref("tema",novo)});
+var pl=lerPref("lang");if(pl==="en")lang="en";
+var pt=lerPref("tema");if(pt==="dark"||pt==="light")document.documentElement.setAttribute("data-theme",pt);
+aplicaTextos();
+</script>
+
+</body>
+</html>
