@@ -104,6 +104,7 @@ td.neg{color:var(--warn)}
 .msg b{font-family:var(--f-mono);font-size:.74rem;color:var(--warn)}
 .note{font-size:.84rem;color:var(--muted);margin:10px 0 0}
 .bar{display:inline-block;height:8px;background:var(--accent);border-radius:2px;vertical-align:middle;margin-right:6px}
+footer a{color:var(--accent)}
 footer{border-top:1px solid var(--line);padding-top:18px;font-size:.88rem;color:var(--muted);display:flex;flex-direction:column;gap:6px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.prog i{transition:none}}
@@ -113,7 +114,7 @@ html{color-scheme:light}body{margin:0}</style>
 <body>
 <div class="wrap">
   <div class="top">
-    <a class="id" id="nome" href="../" style="text-decoration:none;color:inherit">&larr; [SEU NOME] · Dados e Risco</a>
+    <a class="id" id="nome" href="../" style="text-decoration:none;color:inherit">&larr; Romeu Fronzaroli · Dados e Risco</a>
     <div class="ctrl">
       <button class="chip" id="l-pt" aria-pressed="true" type="button">PT</button>
       <button class="chip" id="l-en" aria-pressed="false" type="button">EN</button>
@@ -212,7 +213,7 @@ html{color-scheme:light}body{margin:0}</style>
 
   <footer>
     <span data-i18n="foot1"></span>
-    <span data-i18n="foot2"></span>
+    <span><span data-i18n="contato"></span> <a href="mailto:romeuqf@gmail.com">romeuqf@gmail.com</a> &middot; <a href="https://www.linkedin.com/in/romeufronzaroli/" target="_blank" rel="noopener">LinkedIn</a></span>
   </footer>
 </div>
 
@@ -246,7 +247,7 @@ d1a:"Interface desktop",d1b:"seleção, confirmação, progresso",d2a:"Rotinas",
 d4a:"Cliente de API",d4b:"token, tentativas, tempo limite",d5a:"Configuração central",d5b:"parâmetros por carteira",d6a:"JSON bruto e consolidado",d6b:"por carteira, rotina e data",d7a:"Consolidação final",d7b:"Excel com várias abas",
 s3e:"Decisões e lições",s3h:"O que deu trabalho e como foi resolvido",
 s4e:"Próximos passos",s4h:"Mais aplicações no mesmo padrão",s4t:"Já existem versões para outras entidades do grupo e estão em preparação os estudos de caso de conferência de balancetes e de cargas de dados, com a mesma estrutura desta página.",
-foot1:"Este portfólio descreve um trabalho real. Nenhum dado, nome de carteira, endereço ou credencial da instituição é exibido.",foot2:"Contato: [SEU E-MAIL] · [SEU LINKEDIN]"},
+foot1:"Este portfólio descreve um trabalho real. Nenhum dado, nome de carteira, endereço ou credencial da instituição é exibido.",contato:"Contato:"},
 en:{tema:"Theme",eyebrow:"Case study · Market Risk",
 h1:"Risk reports that build themselves, from API request to consolidated Excel",
 lead:"A Python application that automates running, collecting and consolidating market risk reports for dozens of fund portfolios at a cooperative financial institution.",
@@ -274,7 +275,7 @@ d1a:"Desktop interface",d1b:"selection, confirmation, progress",d2a:"Routines",d
 d4a:"API client",d4b:"token, retries, timeout",d5a:"Central config",d5b:"parameters per portfolio",d6a:"Raw and consolidated JSON",d6b:"per portfolio, routine and date",d7a:"Final consolidation",d7b:"multi-sheet Excel",
 s3e:"Decisions and lessons",s3h:"What was hard and how it was solved",
 s4e:"What is next",s4h:"More applications on the same pattern",s4t:"Versions for other group entities already exist, and case studies for balance sheet checks and data loads are being prepared with the same structure as this page.",
-foot1:"This portfolio describes real work. No data, portfolio names, addresses or credentials from the institution are shown.",foot2:"Contact: [YOUR EMAIL] · [YOUR LINKEDIN]"}
+foot1:"This portfolio describes real work. No data, portfolio names, addresses or credentials from the institution are shown.",contato:"Contact:"}
 };
 var DEC = {
 pt:[["Configuração central","Cada carteira tem seu horizonte, confiança e benchmark em um só lugar. Antes de qualquer chamada, uma janela de confirmação mostra exatamente o que vai rodar."],
