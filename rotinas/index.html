@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rotinas regulatórias para dezenas de entidades</title>
+<meta name="description" content="Estudo de caso: aplicação em Python que cria, acompanha e consolida relatórios de IRRBB e risco de mercado para mais de mil portfolios, com recuperação de falhas da API.">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:title" content="Rotinas regulatórias para dezenas de entidades, sem repetir o trabalho">
+<meta property="og:description" content="Estudo de caso em Python: IRRBB, DDR, DRM, PV01 e Estresse para muitas entidades, com recuperação de timeout e consolidação final. Com demo interativa.">
+<meta property="og:url" content="https://romeuqf.github.io/rotinas/">
+<meta property="og:image" content="https://romeuqf.github.io/assets/og-rotinas.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<style>
+/* Layout: coluna unica, caso no topo, demo do fluxo de criacao no meio, codigo e decisoes ao final */
+:root{
+  --bg:#eceff3; --panel:#ffffff; --ink:#0d1b2a; --muted:#566275; --line:#d5dae2; --soft:#f4f6f9;
+  --accent:#a8500b; --accent-fg:#ffffff; --head:#13263d; --head-fg:#eef2f7;
+  --pos:#1b7a4b; --warn:#9a6700; --warn-bg:#fff3d6; --bad:#b3261e; --code:#fafbfc; --hl:#fde9cf;
+  --f-display:"Newsreader",Georgia,serif; --f-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1118; --panel:#131b25; --ink:#e8edf3; --muted:#93a0b2; --line:#26303d; --soft:#101821;
+  --accent:#f0a35c; --accent-fg:#1a1006; --head:#1c2b3f; --head-fg:#eef2f7;
+  --pos:#5fd08e; --warn:#f0c26a; --warn-bg:#2d2412; --bad:#ff8a80; --code:#0f161e; --hl:#3a2a14; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1118; --panel:#131b25; --ink:#e8edf3; --muted:#93a0b2; --line:#26303d; --soft:#101821;
+  --accent:#f0a35c; --accent-fg:#1a1006; --head:#1c2b3f; --head-fg:#eef2f7;
+  --pos:#5fd08e; --warn:#f0c26a; --warn-bg:#2d2412; --bad:#ff8a80; --code:#0f161e; --hl:#3a2a14; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);line-height:1.55;margin:0;
+  padding-block:20px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+html{color-scheme:light}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:44px;min-width:0}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+.top .id{font-family:var(--f-mono);font-size:.8rem;color:var(--muted)}
+.ctrl{display:flex;gap:8px}
+.chip{font:inherit;font-size:.8rem;font-family:var(--f-mono);padding:5px 10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:5px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+h1{font-family:var(--f-display);font-weight:600;font-size:clamp(2rem,5.4vw,3.4rem);line-height:1.08;margin:0 0 14px;text-wrap:balance;letter-spacing:-.01em}
+h2{font-family:var(--f-display);font-weight:600;font-size:1.7rem;line-height:1.15;margin:0 0 6px;text-wrap:balance}
+.lead{font-size:1.1rem;color:var(--muted);max-width:62ch;margin:0}
+.eyebrow{font-family:var(--f-mono);font-size:.74rem;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);margin:0 0 8px}
+.sec{display:flex;flex-direction:column;gap:18px;min-width:0}
+.sec p.t{margin:0;max-width:66ch;color:var(--muted)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));border:1px solid var(--line);background:var(--panel);border-radius:8px}
+.fact{padding:16px 18px;border-right:1px solid var(--line);min-width:0}
+.fact:last-child{border-right:0}
+.fact b{display:block;font-family:var(--f-mono);font-weight:500;font-size:1.9rem;line-height:1.1}
+.fact span{color:var(--muted);font-size:.88rem}
+@media (max-width:640px){.fact{border-right:0;border-bottom:1px solid var(--line)}.fact:last-child{border-bottom:0}}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px;min-width:0}
+.card h3{margin:0 0 6px;font-size:1rem}
+.card p{margin:0;color:var(--muted);font-size:.93rem}
+.diagram{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;overflow-x:auto}
+.diagram svg{min-width:640px;width:100%;height:auto;display:block}
+.bx{fill:var(--soft);stroke:var(--line);stroke-width:1.2}
+.bx.k{fill:var(--head);stroke:var(--head)}
+.bx.w{fill:var(--warn-bg);stroke:var(--warn)}
+.dt{fill:var(--ink);font:500 13px var(--f-ui)}
+.dt.k{fill:var(--head-fg)}
+.ds{fill:var(--muted);font:400 11px var(--f-ui)}
+.ds.k{fill:#b8c5d6}
+.ar{stroke:var(--muted);stroke-width:1.4;fill:none}
+.ar.d{stroke-dasharray:5 4;stroke:var(--warn)}
+.arh{fill:var(--muted)}
+/* demo */
+.demo{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.dbar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--head);color:var(--head-fg)}
+.dbar b{font-weight:600}
+.fict{font-family:var(--f-mono);font-size:.72rem;background:var(--warn-bg);color:var(--warn);padding:3px 8px;border-radius:4px}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px 16px;padding:16px 14px;border-bottom:1px solid var(--line);align-items:end}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.78rem;color:var(--muted);font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.05em}
+label.ck{display:flex;gap:8px;align-items:center;font-size:.9rem;color:var(--ink);cursor:pointer}
+.in{font:inherit;font-size:.95rem;font-family:var(--f-ui);text-transform:none;letter-spacing:0;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
+.go{font:inherit;font-weight:600;padding:10px 16px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-fg);cursor:pointer}
+.go[disabled]{opacity:.55;cursor:progress}
+.params{grid-column:1/-1;font-family:var(--f-mono);font-size:.78rem;color:var(--muted)}
+.prog{height:6px;background:var(--soft)}
+.prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s linear}
+.status{padding:8px 14px;font-size:.82rem;color:var(--muted);font-family:var(--f-mono);border-bottom:1px solid var(--line)}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px 0}
+.tab{font:inherit;font-size:.88rem;padding:7px 12px;border:1px solid var(--line);border-bottom:0;background:var(--soft);color:var(--muted);border-radius:6px 6px 0 0;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--panel);color:var(--ink);font-weight:600;position:relative;top:1px}
+.pane{border-top:1px solid var(--line);padding:14px;min-width:0}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px;max-height:430px;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-size:.86rem;font-variant-numeric:tabular-nums}
+th{background:var(--head);color:var(--head-fg);font-weight:500;text-align:right;padding:8px 10px;white-space:nowrap;position:sticky;top:0}
+th:first-child,td:first-child,th:nth-child(2){text-align:left}
+td{padding:7px 10px;text-align:right;border-top:1px solid var(--line);white-space:nowrap}
+td.l{text-align:left}
+tr.hl td{background:var(--hl)}
+tr.sub td{background:var(--soft);font-weight:600}
+td.neg{color:var(--warn)}
+.st{font-family:var(--f-mono);font-size:.74rem;padding:2px 7px;border-radius:4px;background:var(--soft);border:1px solid var(--line)}
+.st.ok{color:var(--pos)} .st.run{color:var(--warn)} .st.err{color:var(--bad)}
+.empty{padding:30px 14px;color:var(--muted);text-align:center}
+.log{font-family:var(--f-mono);font-size:.76rem;background:var(--code);border:1px solid var(--line);border-radius:6px;padding:10px;max-height:190px;overflow-y:auto;color:var(--muted);margin:0 14px 14px;white-space:pre-wrap}
+.note{font-size:.84rem;color:var(--muted);margin:10px 0 0}
+.code{background:var(--code);border:1px solid var(--line);border-radius:8px;overflow:hidden;min-width:0}
+.code .cap{padding:8px 14px;font-family:var(--f-mono);font-size:.76rem;color:var(--muted);border-bottom:1px solid var(--line);background:var(--soft)}
+.code pre{margin:0;padding:14px;overflow-x:auto;font-family:var(--f-mono);font-size:.8rem;line-height:1.55;color:var(--ink)}
+.tl{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.tl .card .tag{font-family:var(--f-mono);font-size:.72rem;color:var(--accent)}
+footer a{color:var(--accent)}
+footer{border-top:1px solid var(--line);padding-top:18px;font-size:.88rem;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.prog i{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="id" href="../" style="text-decoration:none;color:inherit">&larr; Romeu Fronzaroli · Dados e Risco</a>
+    <div class="ctrl">
+      <button class="chip" id="l-pt" aria-pressed="true" type="button">PT</button>
+      <button class="chip" id="l-en" aria-pressed="false" type="button">EN</button>
+      <button class="chip" id="tema" type="button" data-i18n="tema">Tema</button>
+    </div>
+  </div>
+
+  <header class="sec">
+    <p class="eyebrow" data-i18n="eyebrow"></p>
+    <h1 data-i18n="h1"></h1>
+    <p class="lead" data-i18n="lead"></p>
+  </header>
+
+  <div class="facts">
+    <div class="fact"><b>7</b><span data-i18n="f1"></span></div>
+    <div class="fact"><b>1.000+</b><span data-i18n="f2"></span></div>
+    <div class="fact"><b>2</b><span data-i18n="f3"></span></div>
+    <div class="fact"><b>1</b><span data-i18n="f4"></span></div>
+  </div>
+
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s1e"></p><h2 data-i18n="s1h"></h2></div>
+    <div class="cols">
+      <div class="card"><h3 data-i18n="p1h"></h3><p data-i18n="p1t"></p></div>
+      <div class="card"><h3 data-i18n="p2h"></h3><p data-i18n="p2t"></p></div>
+      <div class="card"><h3 data-i18n="p3h"></h3><p data-i18n="p3t"></p></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="demoe"></p><h2 data-i18n="demoh"></h2>
+    <p class="t" style="margin:6px 0 0" data-i18n="demot"></p></div>
+    <div class="demo" id="demo">
+      <div class="dbar"><span><b data-i18n="dtitle"></b></span><span class="fict" data-i18n="fict"></span></div>
+      <div class="form">
+        <label class="f"><span data-i18n="lent"></span><select class="in" id="ent"></select></label>
+        <label class="ck"><input type="checkbox" id="cto" checked> <span data-i18n="lto"></span></label>
+        <button class="go" id="run" type="button" data-i18n="run"></button>
+        <div class="params" data-i18n="params"></div>
+      </div>
+      <div class="prog"><i id="pbar"></i></div>
+      <div class="status" id="status" data-i18n="ready"></div>
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="pane" id="pane"></div>
+      <pre class="log" id="log" aria-live="polite"></pre>
+    </div>
+    <p class="note" data-i18n="demonote"></p>
+  </section>
+
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s2e"></p><h2 data-i18n="s2h"></h2></div>
+    <div class="diagram">
+      <svg viewBox="0 0 760 330" role="img" aria-labelledby="dg-t">
+        <title id="dg-t" data-i18n="dgtitle"></title>
+        <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="arh"/></marker></defs>
+        <rect class="bx k" x="10" y="20" width="170" height="64" rx="6"/>
+        <text class="dt k" x="95" y="48" text-anchor="middle" data-i18n="d1a"></text>
+        <text class="ds k" x="95" y="66" text-anchor="middle" data-i18n="d1b"></text>
+        <rect class="bx" x="295" y="20" width="170" height="64" rx="6"/>
+        <text class="dt" x="380" y="48" text-anchor="middle" data-i18n="d2a"></text>
+        <text class="ds" x="380" y="66" text-anchor="middle" data-i18n="d2b"></text>
+        <rect class="bx" x="580" y="20" width="170" height="64" rx="6"/>
+        <text class="dt" x="665" y="48" text-anchor="middle" data-i18n="d3a"></text>
+        <text class="ds" x="665" y="66" text-anchor="middle" data-i18n="d3b"></text>
+        <rect class="bx w" x="295" y="130" width="170" height="64" rx="6"/>
+        <text class="dt" x="380" y="158" text-anchor="middle" data-i18n="d4a"></text>
+        <text class="ds" x="380" y="176" text-anchor="middle" data-i18n="d4b"></text>
+        <rect class="bx" x="580" y="130" width="170" height="64" rx="6"/>
+        <text class="dt" x="665" y="158" text-anchor="middle" data-i18n="d5a"></text>
+        <text class="ds" x="665" y="176" text-anchor="middle" data-i18n="d5b"></text>
+        <rect class="bx" x="10" y="130" width="170" height="64" rx="6"/>
+        <text class="dt" x="95" y="158" text-anchor="middle" data-i18n="d6a"></text>
+        <text class="ds" x="95" y="176" text-anchor="middle" data-i18n="d6b"></text>
+        <rect class="bx" x="295" y="250" width="170" height="64" rx="6"/>
+        <text class="dt" x="380" y="278" text-anchor="middle" data-i18n="d7a"></text>
+        <text class="ds" x="380" y="296" text-anchor="middle" data-i18n="d7b"></text>
+        <rect class="bx k" x="580" y="250" width="170" height="64" rx="6"/>
+        <text class="dt k" x="665" y="278" text-anchor="middle" data-i18n="d8a"></text>
+        <text class="ds k" x="665" y="296" text-anchor="middle" data-i18n="d8b"></text>
+        <path class="ar" d="M180 52H293" marker-end="url(#ah)"/>
+        <path class="ar" d="M465 52H578" marker-end="url(#ah)"/>
+        <path class="ar" d="M380 84V128" marker-end="url(#ah)"/>
+        <path class="ar" d="M465 162H578" marker-end="url(#ah)"/>
+        <path class="ar d" d="M578 176H467" marker-end="url(#ah)"/>
+        <path class="ar" d="M293 162H182" marker-end="url(#ah)"/>
+        <path class="ar" d="M380 194V248" marker-end="url(#ah)"/>
+        <path class="ar" d="M465 282H578" marker-end="url(#ah)"/>
+      </svg>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s7e"></p><h2 data-i18n="s7h"></h2>
+    <p class="t" style="margin-top:6px" data-i18n="s7t"></p></div>
+    <div class="tl">
+      <div class="card"><span class="tag" data-i18n="w1tag"></span><h3 data-i18n="w1h"></h3><p data-i18n="w1t"></p></div>
+      <div class="card"><span class="tag" data-i18n="w2tag"></span><h3 data-i18n="w2h"></h3><p data-i18n="w2t"></p></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s5e"></p><h2 data-i18n="s5h"></h2>
+    <p class="t" style="margin-top:6px" data-i18n="s5t"></p></div>
+    <div class="tl">
+      <div class="card"><span class="tag" data-i18n="v1tag"></span><h3 data-i18n="v1h"></h3><p data-i18n="v1t"></p></div>
+      <div class="card"><span class="tag" data-i18n="v2tag"></span><h3 data-i18n="v2h"></h3><p data-i18n="v2t"></p></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s6e"></p><h2 data-i18n="s6h"></h2>
+    <p class="t" style="margin-top:6px" data-i18n="s6t"></p></div>
+    <div class="code"><div class="cap" data-i18n="c1cap"></div><pre><code id="c1"></code></pre></div>
+    <div class="code"><div class="cap" data-i18n="c2cap"></div><pre><code id="c2"></code></pre></div>
+  </section>
+
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s3e"></p><h2 data-i18n="s3h"></h2></div>
+    <div class="cols" id="dec"></div>
+  </section>
+
+  <footer>
+    <span data-i18n="foot1"></span>
+    <span><span data-i18n="contato"></span> <a href="https://www.linkedin.com/in/romeufronzaroli/" target="_blank" rel="noopener">LinkedIn</a></span>
+  </footer>
+</div>
+
+<script>
+/* ---------- Textos PT/EN ---------- */
+var T = {
+pt:{tema:"Tema",eyebrow:"Estudo de caso · IRRBB e Risco de Mercado",
+h1:"Rotinas regulatórias para dezenas de entidades, sem repetir o trabalho",
+lead:"Aplicação desktop em Python que cria, acompanha e consolida relatórios de IRRBB, DDR, DRM, PV01 e Estresse para uma rede de entidades. Cada entidade tem portfolios, cenários e cadastro próprios, e a ferramenta de risco responde de forma assíncrona e nem sempre estável.",
+f1:"rotinas no mesmo molde (IRRBB, DDR, DRM, PV01, Estresse, Estresse Histórico, Customizado)",f2:"portfolios na ferramenta de risco, selecionados por entidade e segmento",f3:"portfolios de IRRBB por entidade, cada um com seu par de cenários",f4:"arquivo final por entidade, reunindo todos os relatórios",
+s1e:"O problema",s1h:"Muitas entidades, uma API assíncrona e prazos fixos",
+p1h:"Escala",p1t:"Cada relatório precisa ser criado para cada entidade, na data certa, com o portfolio e o cenário certos. Fazer isso pela tela da ferramenta significava centenas de cliques por rodada.",
+p2h:"Criação assíncrona",p2t:"O POST entra numa fila. O relatório pode levar minutos, mudar de status várias vezes e, às vezes, o POST expira sem resposta mesmo com o pedido já aceito.",
+p3h:"Cadastros externos",p3t:"Segmento e CNPJ de cada entidade vêm de arquivos de cadastro que mudam todo mês. Era preciso lê-los, validar e guardar em cache para não travar a interface.",
+demoe:"Demonstração",demoh:"Veja a criação de um relatório de IRRBB, com falha de rede",
+demot:"A simulação reproduz o fluxo de criação: verificar duplicidade, enviar o POST, perder a resposta, achar o relatório pela listagem, acompanhar o status e consolidar por produto. Os tempos foram acelerados e nada sai do seu navegador.",
+dtitle:"IRRBB multi-entidade",fict:"DADOS FICTÍCIOS",lent:"Entidade",lto:"Simular timeout no POST",run:"Criar relatórios",
+params:"Portfolios por entidade: Padrão e Interno | Espera do POST: 60 s | Status a cada 20 s | Limite: 60 min",
+all:"Todas (A, B e C)",
+ready:"Pronto. Escolha a entidade e clique em Criar relatórios.",
+tFluxo:"Fluxo",tList:"Listagem da API",tCons:"Consolidado por produto",
+cStep:"Etapa",cDet:"Detalhe",cId:"ID",cPort:"Portfolio",cData:"Data",cSt:"Status",
+cGrp:"Grupo",cProd:"Produto",cEveA:"Delta EVE Alta",cEveB:"Delta EVE Baixa",cNiiA:"Delta NII Alta",cNiiB:"Delta NII Baixa",
+lcons:"Portfolio",
+empty:"Nenhum resultado ainda. Execute para ver o fluxo.",
+snap:"Snapshot da listagem",snapd:"IDs existentes registrados antes do POST",
+dup:"Verificação de duplicidade",dupd:"nenhum relatório igual encontrado",
+post:"POST enviado",posto:"resposta recebida com o ID",postt:"sem resposta em 60 s (simulado)",
+fb:"Busca por exclusão de IDs",fbn:"ainda não aparece na listagem",fbo:"encontrado: ID que não estava no snapshot",
+poll:"Acompanhamento de status",
+cons:"Consolidação",consd:"soma das colunas Delta por Grupo e Produto",
+running:"Criando",done:"Concluído",
+demonote:"Entidades, portfolios, produtos e valores são inventados. A lógica de decisão (snapshot, exclusão de IDs, status válidos, consolidação por soma) é a mesma da aplicação real.",
+s2e:"Arquitetura",s2h:"Um molde só, repetido por rotina",
+dgtitle:"Fluxo da aplicação: interface, rotinas, ferramenta de risco, cliente de API, cadastros, arquivos e consolidação final",
+d1a:"Interface desktop",d1b:"filtros por entidade e segmento",d2a:"Rotinas",d2b:"IRRBB, DDR, DRM, PV01…",d3a:"Ferramenta de risco",d3b:"criação e status assíncronos",
+d4a:"Cliente de API",d4b:"token, tentativas, recuperação",d5a:"Cadastros em cache",d5b:"segmento e CNPJ por entidade",d6a:"Arquivos por entidade",d6b:"bruto, consolidado e logs",d7a:"Consolidador final",d7b:"um Excel por entidade",d8a:"Relatório pronto",d8b:"abas por rotina",
+s5e:"Evolução",s5h:"A mesma falha, resolvida de duas formas",
+s5t:"O ponto mais delicado da aplicação foi o POST que expira. A solução mudou quando a API passou a devolver o ID do relatório e a oferecer um endpoint de status.",
+v1tag:"Versão 1",v1h:"Comparar listagens",v1t:"A API não devolvia ID. A aplicação guardava a lista de IDs antes do POST e, depois, procurava na listagem o ID novo daquele portfolio e daquela data.",
+v2tag:"Versão 2",v2h:"Consultar o status por ID",v2t:"Com o ID no retorno do POST, o acompanhamento passou a usar um endpoint dedicado. Para os casos em que o POST ainda expira, a versão para o banco manteve a busca por exclusão como plano B.",
+s6e:"Código",s6h:"Dois trechos, genéricos e sem dados da instituição",
+s6t:"Nomes de endereços, portfolios e campos foram trocados por equivalentes genéricos. São trechos ilustrativos, e não a aplicação completa.",
+c1cap:"Recuperação quando o POST expira",c2cap:"Acompanhamento de status com conjunto de valores válidos",
+s3e:"Decisões e lições",s3h:"O que deu trabalho e como foi resolvido",
+s7e:"Duas versões",s7h:"O mesmo molde, aplicado a dois contextos",s7t:"A aplicação existe em uma versão para a rede de entidades e em outra para o banco que as atende. Só mudam os parâmetros; o fluxo de criação, recuperação e consolidação é o mesmo.",w1tag:"Rede de entidades",w1h:"Portfolios por entidade",w1t:"Cada entidade tem seus portfolios (Padrão e Interno no IRRBB, Trading no DDR, Consolidado no DRM). Filtros por segmento e CNPJ dinâmico vêm dos cadastros mensais, e o consolidador final gera um Excel por entidade.",w2tag:"Banco",w2h:"Portfolios fixos e opcionalidades",w2t:"Portfolios únicos, IRRBB com opcionalidades e cenários configuráveis. Mantém a busca por exclusão de IDs como plano B quando o POST expira e consolida tudo em um só arquivo.",
+foot1:"Este portfólio descreve um trabalho real. Nenhum dado, nome de entidade, endereço ou credencial da instituição é exibido.",contato:"Contato:"},
+en:{tema:"Theme",eyebrow:"Case study · IRRBB and Market Risk",
+h1:"Regulatory routines for dozens of entities, without repeating the work",
+lead:"A Python desktop application that creates, tracks and consolidates IRRBB, DDR, DRM, PV01 and Stress reports for a network of entities. Each entity has its own portfolios, scenarios and registry data, and the risk tool answers asynchronously and not always reliably.",
+f1:"routines on the same template (IRRBB, DDR, DRM, PV01, Stress, Historical Stress, Custom)",f2:"portfolios in the risk tool, selected by entity and segment",f3:"IRRBB portfolios per entity, each with its own pair of scenarios",f4:"final file per entity, bringing every report together",
+s1e:"The problem",s1h:"Many entities, an asynchronous API and fixed deadlines",
+p1h:"Scale",p1t:"Each report must be created for each entity, on the right date, with the right portfolio and scenario. Doing it through the tool screens meant hundreds of clicks per round.",
+p2h:"Asynchronous creation",p2t:"The POST goes into a queue. A report can take minutes, change status several times and, sometimes, the POST times out even though the request was accepted.",
+p3h:"External registries",p3t:"Each entity's segment and tax ID come from registry files that change every month. They had to be read, validated and cached so the interface would not freeze.",
+demoe:"Demo",demoh:"Watch an IRRBB report being created, with a network failure",
+demot:"The simulation reproduces the creation flow: duplicate check, POST, lost response, finding the report in the listing, tracking status and consolidating by product. Timings are accelerated and nothing leaves your browser.",
+dtitle:"Multi-entity IRRBB",fict:"SYNTHETIC DATA",lent:"Entity",lto:"Simulate POST timeout",run:"Create reports",
+params:"Portfolios per entity: Standard and Internal | POST wait: 60 s | Status every 20 s | Limit: 60 min",
+all:"All (A, B and C)",
+ready:"Ready. Pick an entity and click Create reports.",
+tFluxo:"Flow",tList:"API listing",tCons:"Consolidated by product",
+cStep:"Step",cDet:"Detail",cId:"ID",cPort:"Portfolio",cData:"Date",cSt:"Status",
+cGrp:"Group",cProd:"Product",cEveA:"Delta EVE Up",cEveB:"Delta EVE Down",cNiiA:"Delta NII Up",cNiiB:"Delta NII Down",
+lcons:"Portfolio",
+empty:"No results yet. Run to see the flow.",
+snap:"Listing snapshot",snapd:"existing IDs recorded before the POST",
+dup:"Duplicate check",dupd:"no identical report found",
+post:"POST sent",posto:"response received with the ID",postt:"no response in 60 s (simulated)",
+fb:"Search by ID exclusion",fbn:"not in the listing yet",fbo:"found: ID that was not in the snapshot",
+poll:"Status tracking",
+cons:"Consolidation",consd:"sum of the Delta columns by Group and Product",
+running:"Creating",done:"Done",
+demonote:"Entities, portfolios, products and values are made up. The decision logic (snapshot, ID exclusion, valid statuses, sum consolidation) is the same as in the real application.",
+s2e:"Architecture",s2h:"One template, repeated per routine",
+dgtitle:"Application flow: interface, routines, risk tool, API client, registries, files and final consolidation",
+d1a:"Desktop interface",d1b:"filters by entity and segment",d2a:"Routines",d2b:"IRRBB, DDR, DRM, PV01…",d3a:"Risk tool",d3b:"asynchronous creation and status",
+d4a:"API client",d4b:"token, retries, recovery",d5a:"Cached registries",d5b:"segment and tax ID per entity",d6a:"Files per entity",d6b:"raw, consolidated and logs",d7a:"Final consolidator",d7b:"one Excel per entity",d8a:"Finished report",d8b:"one sheet per routine",
+s5e:"Evolution",s5h:"The same failure, solved two ways",
+s5t:"The most delicate point was the POST that times out. The solution changed once the API began returning the report ID and offering a status endpoint.",
+v1tag:"Version 1",v1h:"Compare listings",v1t:"The API returned no ID. The app stored the list of IDs before the POST and then looked in the listing for the new ID for that portfolio and date.",
+v2tag:"Version 2",v2h:"Query status by ID",v2t:"With the ID in the POST response, tracking moved to a dedicated endpoint. For cases where the POST still times out, the bank version kept the exclusion search as plan B.",
+s6e:"Code",s6h:"Two excerpts, generic and free of institution data",
+s6t:"Addresses, portfolio names and fields were replaced by generic equivalents. These are illustrative excerpts, not the full application.",
+c1cap:"Recovery when the POST times out",c2cap:"Status tracking with a set of valid values",
+s3e:"Decisions and lessons",s3h:"What was hard and how it was solved",
+s7e:"Two versions",s7h:"The same template, applied to two contexts",s7t:"The application exists in a version for the network of entities and another for the bank that serves them. Only parameters change; the creation, recovery and consolidation flow is the same.",w1tag:"Network of entities",w1h:"Portfolios per entity",w1t:"Each entity has its own portfolios (Standard and Internal in IRRBB, Trading in DDR, Consolidated in DRM). Segment filters and dynamic tax IDs come from the monthly registries, and the final consolidator writes one Excel per entity.",w2tag:"Bank",w2h:"Fixed portfolios and optionalities",w2t:"Single portfolios, IRRBB with optionalities and configurable scenarios. It keeps the ID exclusion search as plan B when the POST times out and consolidates everything in one file.",
+foot1:"This portfolio describes real work. No data, entity names, addresses or credentials from the institution are shown.",contato:"Contact:"}
+};
+var DEC = {
+pt:[["Criação sequencial por entidade","Cada entidade cria o portfolio Padrão, espera concluir, e só então cria o Interno. Isso evita sobrecarregar a fila e deixa o log legível."],
+["Cenários dentro do próprio pedido","Os cenários de alta e baixa seguem nos parâmetros da criação. Eliminou-se uma chamada de ajuste separada e o risco de ficar com o relatório pela metade."],
+["Status válidos como conjunto","SUCESSO e AVISO contam como concluído; ERRO interrompe; NA FILA e EXECUTANDO esperam. Um status desconhecido é registrado e o acompanhamento continua."],
+["404 não é falha imediata","Logo após o POST, a API pode responder 404 para um ID recém-criado. O código tolera três respostas seguidas antes de declarar erro."],
+["Cadastros com cache local","Segmento e CNPJ vêm de arquivos mensais. Na primeira vez a aplicação lê o mais recente e grava um cache; nas próximas, só atualiza se houver arquivo mais novo."],
+["Pastas por entidade primeiro","Tudo é gravado como entidade, rotina e data. O consolidador final varre essa estrutura e mostra, por entidade, quais relatórios estão completos antes de gerar o arquivo."],
+["Credenciais fora do código","O segredo de acesso fica no cofre de credenciais do sistema operacional, com variável de ambiente como alternativa. Na primeira execução a aplicação pede o valor e o guarda por usuário."],
+["Molde comum em classe base","Criação, acompanhamento de status, download e consolidação foram extraídos para uma classe base. Cada rotina informa apenas endpoints, portfolios e colunas."]],
+en:[["Sequential creation per entity","Each entity creates the Standard portfolio, waits for it to finish, and only then creates the Internal one. This avoids flooding the queue and keeps the log readable."],
+["Scenarios inside the request","Up and down scenarios travel in the creation parameters. A separate adjustment call was removed, along with the risk of a half-built report."],
+["Valid statuses as a set","SUCCESS and WARNING count as done; ERROR stops; QUEUED and RUNNING wait. An unknown status is logged and tracking continues."],
+["A 404 is not an immediate failure","Right after the POST, the API may answer 404 for a freshly created ID. The code tolerates three in a row before declaring an error."],
+["Registries with a local cache","Segment and tax ID come from monthly files. The first time the app reads the latest one and writes a cache; afterwards it only refreshes if a newer file exists."],
+["Entity-first folders","Everything is saved as entity, routine and date. The final consolidator scans this structure and shows, per entity, which reports are complete before generating the file."],
+["Credentials out of the code","The access secret lives in the operating system credential vault, with an environment variable as fallback. On first run the app asks for it and stores it per user."],
+["Common template in a base class","Creation, status tracking, download and consolidation were extracted into a base class. Each routine only declares endpoints, portfolios and columns."]]
+};
+var C1 = [
+'def criar_relatorio(self, portfolio: str, data_ref: str) -> int:',
+'    """Cria o relatorio e devolve o ID, mesmo se o POST expirar."""',
+'    antes = {r["id"] for r in self.listar()}          # snapshot pre-POST',
+'',
+'    resposta, erro = self._post_com_limite(portfolio, data_ref, limite_s=60)',
+'    if resposta and resposta.get("id"):',
+'        return resposta["id"]',
+'',
+'    for tentativa in range(1, 6):                     # plano B: listagem',
+'        time.sleep(15)',
+'        novos = [',
+'            r for r in self.listar()',
+'            if r["id"] not in antes',
+'            and r["portfolio"] == portfolio',
+'            and r["dataReferencia"] == data_ref',
+'        ]',
+'        if novos:',
+'            return novos[0]["id"]',
+'',
+'    raise RuntimeError(f"POST sem ID e relatorio ausente na listagem: {erro}")'
+].join('\n');
+var C2 = [
+'STATUS_CONCLUIDO = {"SUCESSO", "AVISO"}',
+'STATUS_ESPERA = {"NA_FILA", "EXECUTANDO"}',
+'',
+'def aguardar_status(self, rel_id: int, intervalo: int = 20,',
+'                    limite_min: int = 60, max_404: int = 3) -> None:',
+'    """Consulta o status por ID ate concluir, falhar ou estourar o limite."""',
+'    inicio, falhas_404 = time.time(), 0',
+'    while time.time() - inicio < limite_min * 60:',
+'        time.sleep(intervalo)',
+'        resp = self.consultar_status(rel_id)',
+'        if resp.get("statusCode") == 404:',
+'            falhas_404 += 1',
+'            if falhas_404 >= max_404:',
+'                raise RuntimeError(f"ID {rel_id} nao encontrado")',
+'            continue',
+'        falhas_404 = 0',
+'        status = (resp.get("status") or "").upper().replace(" ", "_")',
+'        if status in STATUS_CONCLUIDO:',
+'            return',
+'        if status == "ERRO":',
+'            raise RuntimeError(resp.get("message", "erro no processamento"))',
+'        if status not in STATUS_ESPERA:',
+'            self.log.warning(f"status desconhecido: {status!r}")',
+'    raise TimeoutError(f"limite de {limite_min} min no ID {rel_id}")'
+].join('\n');
+
+/* ---------- Estado e utilidades ---------- */
+var lang="pt", rodando=false, aba="tFluxo", passos=[], listagem=[], consol={}, consSel=null;
+function t(k){return (T[lang][k]!==undefined)?T[lang][k]:k}
+function fmt(n){return n.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
+function lerPref(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function gravaPref(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+/* ---------- Simulacao da API (fictícia) ---------- */
+var DATA_REF="22/10/2026";
+var ENTIDADES=["A","B","C"];
+var SUF=[["Banking_Padrao","Padrão","Standard"],["Banking_Interno","Interno","Internal"]];
+var PRODUTOS=[["Ativo","Operações de crédito"],["Ativo","Títulos públicos"],["Ativo","Aplicações interfinanceiras"],["Passivo","Depósitos a prazo"],["Passivo","Depósitos à vista"],["Passivo","Letras de crédito"]];
+var proxId=1046;
+var api=[];
+function semearApi(){api=[{id:1041,portfolio:"Z_Banking_Padrao",dataReferencia:"21/10/2026",status:"SUCESSO"},{id:1042,portfolio:"Z_Banking_Interno",dataReferencia:"21/10/2026",status:"SUCESSO"},{id:1043,portfolio:"Y_Banking_Padrao",dataReferencia:"21/10/2026",status:"SUCESSO"},{id:1044,portfolio:"Y_Banking_Interno",dataReferencia:"21/10/2026",status:"SUCESSO"},{id:1045,portfolio:"X_Banking_Padrao",dataReferencia:"22/10/2026",status:"EXECUTANDO"}];proxId=1046}
+function fmtNum(v){return fmt(v)}
+function gerarConsolidado(seed,interno){
+  var r=mulberry(seed),o=[],i;
+  for(i=0;i<PRODUTOS.length;i++){
+    var base=(PRODUTOS[i][0]==="Ativo"?1:-1)*(1+r()*9)*1e5,k=interno?0.82:1;
+    o.push({g:PRODUTOS[i][0],p:PRODUTOS[i][1],eA:-base*0.9*k,eB:base*1.05*k,nA:base*0.18*k,nB:-base*0.2*k});
+  }
+  return o;
+}
+
+/* ---------- Renderizacao ---------- */
+function setStatus(s){document.getElementById("status").textContent=s}
+function logar(s){var el=document.getElementById("log");el.textContent+=s+"\n";el.scrollTop=el.scrollHeight}
+function barra(p){document.getElementById("pbar").style.width=p+"%"}
+function stCls(s){return s==="SUCESSO"?"ok":(s==="ERRO"?"err":"run")}
+function renderTabs(){
+  var ks=["tFluxo","tList","tCons"],h="";
+  ks.forEach(function(k){h+='<button class="tab" role="tab" type="button" data-k="'+k+'" aria-selected="'+(aba===k)+'">'+esc(t(k))+'</button>'});
+  var el=document.getElementById("tabs");el.innerHTML=h;
+  Array.prototype.forEach.call(el.querySelectorAll(".tab"),function(b){b.onclick=function(){aba=b.getAttribute("data-k");renderTabs();renderPane()}});
+}
+function tabela(cols,rows){
+  var h='<div class="tw"><table><thead><tr>';
+  cols.forEach(function(c){h+='<th>'+esc(c)+'</th>'});
+  h+='</tr></thead><tbody>'+rows.join("")+'</tbody></table></div>';return h;
+}
+function renderPane(){
+  var el=document.getElementById("pane"),h;
+  if(aba==="tFluxo"){
+    if(!passos.length){el.innerHTML='<div class="empty">'+esc(t("empty"))+'</div>';return}
+    h=tabela([t("cStep"),t("cDet")],passos.map(function(p){return '<tr'+(p.hl?' class="hl"':'')+'><td class="l">'+esc(p.a)+'</td><td class="l">'+esc(p.b)+'</td></tr>'}));
+  }else if(aba==="tList"){
+    h=tabela([t("cId"),t("cPort"),t("cData"),t("cSt")],api.map(function(r){
+      return '<tr'+(r.novo?' class="hl"':'')+'><td class="l">'+r.id+'</td><td class="l">'+esc(r.portfolio)+'</td><td class="l">'+r.dataReferencia+'</td><td class="l"><span class="st '+stCls(r.status)+'">'+esc(r.status)+'</span></td></tr>'}));
+  }else{
+    var ks=Object.keys(consol);
+    if(!ks.length){el.innerHTML='<div class="empty">'+esc(t("empty"))+'</div>';return}
+    if(!consSel||!consol[consSel])consSel=ks[0];
+    var opts=ks.map(function(k){return '<option value="'+esc(k)+'"'+(k===consSel?' selected':'')+'>'+esc(k)+'</option>'}).join("");
+    var rows=consol[consSel].map(function(r){return '<tr><td class="l">'+esc(r.g)+'</td><td class="l">'+esc(r.p)+'</td>'+[r.eA,r.eB,r.nA,r.nB].map(function(v){return '<td'+(v<0?' class="neg"':'')+'>'+fmtNum(v)+'</td>'}).join("")+'</tr>'});
+    h='<label class="f" style="max-width:320px;margin-bottom:10px"><span>'+esc(t("lcons"))+'</span><select class="in" id="selcons">'+opts+'</select></label>'+tabela([t("cGrp"),t("cProd"),t("cEveA"),t("cEveB"),t("cNiiA"),t("cNiiB")],rows);
+  }
+  el.innerHTML=h;
+  var s=document.getElementById("selcons");if(s)s.onchange=function(){consSel=s.value;renderPane()};
+}
+function add(a,b,hl){passos.push({a:a,b:b,hl:!!hl});if(aba==="tFluxo")renderPane()}
+
+/* ---------- Execucao da simulacao ---------- */
+async function executar(){
+  if(rodando)return;rodando=true;
+  var btn=document.getElementById("run");btn.disabled=true;
+  var sel=document.getElementById("ent").value,timeout=document.getElementById("cto").checked;
+  var ents=sel==="*"?ENTIDADES:[sel],total=ents.length*SUF.length,n=0;
+  passos=[];consol={};consSel=null;semearApi();
+  document.getElementById("log").textContent="";renderPane();barra(0);
+  var primeiro=true;
+  for(var e=0;e<ents.length;e++){
+    for(var s=0;s<SUF.length;s++){
+      n++;var ent=ents[e],port=ent+"_"+SUF[s][0],rotulo="["+n+"/"+total+"] "+port;
+      setStatus(t("running")+" "+rotulo);logar(rotulo);
+      var antes={};api.forEach(function(r){antes[r.id]=1});
+      add(rotulo+" · "+t("snap"),Object.keys(antes).length+" "+t("snapd"));await sleep(450);
+      add(rotulo+" · "+t("dup"),t("dupd"));await sleep(350);
+      var id=proxId++,perde=timeout&&primeiro;
+      api.push({id:id,portfolio:port,dataReferencia:DATA_REF,status:"NA_FILA",novo:true,oculto:perde});
+      var visivel=function(){return api.filter(function(r){return !r.oculto})};
+      if(!perde){add(rotulo+" · "+t("post"),t("posto")+" (ID "+id+")");logar("  POST ok ID="+id);await sleep(500)}
+      else{
+        add(rotulo+" · "+t("post"),t("postt"),true);logar("  POST sem resposta em 60 s");await sleep(1200);
+        add(rotulo+" · "+t("fb")+" 1/5",t("fbn"));logar("  tentativa 1/5: ainda nao aparece");await sleep(700);
+        api.forEach(function(r){if(r.id===id)r.oculto=false});
+        add(rotulo+" · "+t("fb")+" 2/5",t("fbo")+" (ID "+id+")",true);logar("  tentativa 2/5: encontrado ID="+id);await sleep(700);
+        primeiro=false;
+      }
+      var me=api.filter(function(r){return r.id===id})[0];
+      var sts=["NA_FILA","EXECUTANDO","EXECUTANDO","SUCESSO"];
+      for(var q=0;q<sts.length;q++){
+        me.status=sts[q];add(rotulo+" · "+t("poll"),sts[q]+(q===sts.length-1?"":" · +20 s"));logar("  status "+sts[q]);
+        if(aba==="tList")renderPane();await sleep(420);
+      }
+      consol[port]=gerarConsolidado(ent.charCodeAt(0)*10+s,s===1);
+      add(rotulo+" · "+t("cons"),t("consd"));barra(Math.round(n/total*100));await sleep(300);
+      me.novo=false;
+    }
+  }
+  setStatus(t("done")+": "+total+" portfolios");aba="tCons";renderTabs();renderPane();
+  btn.disabled=false;rodando=false;
+}
+
+/* ---------- Interface ---------- */
+function popularEntidades(){
+  var sel=document.getElementById("ent"),v=sel.value||"*",h='<option value="*">'+esc(t("all"))+'</option>';
+  ENTIDADES.forEach(function(x){h+='<option value="'+x+'">'+x+'</option>'});
+  sel.innerHTML=h;sel.value=v;
+}
+function aplicarIdioma(){
+  document.documentElement.lang=(lang==="pt"?"pt-BR":"en");
+  var els=document.querySelectorAll("[data-i18n]"),i;
+  for(i=0;i<els.length;i++){var k=els[i].getAttribute("data-i18n");if(T[lang][k]!==undefined)els[i].textContent=T[lang][k]}
+  document.getElementById("l-pt").setAttribute("aria-pressed",lang==="pt");
+  document.getElementById("l-en").setAttribute("aria-pressed",lang==="en");
+  var dec=DEC[lang].map(function(d){return '<div class="card"><h3>'+esc(d[0])+'</h3><p>'+esc(d[1])+'</p></div>'}).join("");
+  document.getElementById("dec").innerHTML=dec;
+  document.getElementById("c1").textContent=C1;document.getElementById("c2").textContent=C2;
+  document.title=T[lang].h1;
+  popularEntidades();renderTabs();renderPane();
+  if(!rodando)setStatus(t("ready"));
+}
+document.getElementById("l-pt").onclick=function(){lang="pt";gravaPref("lang","pt");aplicarIdioma()};
+document.getElementById("l-en").onclick=function(){lang="en";gravaPref("lang","en");aplicarIdioma()};
+document.getElementById("tema").onclick=function(){
+  var r=document.documentElement,atual=r.getAttribute("data-theme");
+  if(!atual)atual=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";
+  var novo=atual==="dark"?"light":"dark";r.setAttribute("data-theme",novo);gravaPref("tema",novo)};
+document.getElementById("run").onclick=executar;
+(function(){
+  var p=lerPref("lang");if(p==="pt"||p==="en")lang=p;
+  else if((navigator.language||"").toLowerCase().indexOf("pt")!==0)lang="en";
+  var th=lerPref("tema");if(th==="dark"||th==="light")document.documentElement.setAttribute("data-theme",th);
+  semearApi();aplicarIdioma();
+})();
+</script>
+</body>
+</html>

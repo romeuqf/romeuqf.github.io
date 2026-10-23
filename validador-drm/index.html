@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Validação automática de demonstrativos</title>
+<meta name="description" content="Estudo de caso: aplicação em Python que confronta o balancete com o demonstrativo de risco de mercado por tolerância hierárquica e recalcula itens a partir de quatro cargas.">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:title" content="Balancete contra demonstrativo de risco, com tolerância em quatro níveis">
+<meta property="og:description" content="Estudo de caso em Python: correspondência hierárquica entre balancete e demonstrativo regulatório, com recálculo a partir de cargas. Com demo interativa.">
+<meta property="og:url" content="https://romeuqf.github.io/validador-drm/">
+<meta property="og:image" content="https://romeuqf.github.io/assets/og-validador-drm.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<style>
+/* Layout: coluna unica, caso no topo, demo do fluxo de criacao no meio, codigo e decisoes ao final */
+:root{
+  --bg:#eceff3; --panel:#ffffff; --ink:#0d1b2a; --muted:#566275; --line:#d5dae2; --soft:#f4f6f9;
+  --accent:#a8500b; --accent-fg:#ffffff; --head:#13263d; --head-fg:#eef2f7;
+  --pos:#1b7a4b; --warn:#9a6700; --warn-bg:#fff3d6; --bad:#b3261e; --code:#fafbfc; --hl:#fde9cf;
+  --f-display:"Newsreader",Georgia,serif; --f-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1118; --panel:#131b25; --ink:#e8edf3; --muted:#93a0b2; --line:#26303d; --soft:#101821;
+  --accent:#f0a35c; --accent-fg:#1a1006; --head:#1c2b3f; --head-fg:#eef2f7;
+  --pos:#5fd08e; --warn:#f0c26a; --warn-bg:#2d2412; --bad:#ff8a80; --code:#0f161e; --hl:#3a2a14; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1118; --panel:#131b25; --ink:#e8edf3; --muted:#93a0b2; --line:#26303d; --soft:#101821;
+  --accent:#f0a35c; --accent-fg:#1a1006; --head:#1c2b3f; --head-fg:#eef2f7;
+  --pos:#5fd08e; --warn:#f0c26a; --warn-bg:#2d2412; --bad:#ff8a80; --code:#0f161e; --hl:#3a2a14; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);line-height:1.55;margin:0;
+  padding-block:20px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+html{color-scheme:light}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:44px;min-width:0}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+.top .id{font-family:var(--f-mono);font-size:.8rem;color:var(--muted)}
+.ctrl{display:flex;gap:8px}
+.chip{font:inherit;font-size:.8rem;font-family:var(--f-mono);padding:5px 10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:5px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+h1{font-family:var(--f-display);font-weight:600;font-size:clamp(2rem,5.4vw,3.4rem);line-height:1.08;margin:0 0 14px;text-wrap:balance;letter-spacing:-.01em}
+h2{font-family:var(--f-display);font-weight:600;font-size:1.7rem;line-height:1.15;margin:0 0 6px;text-wrap:balance}
+.lead{font-size:1.1rem;color:var(--muted);max-width:62ch;margin:0}
+.eyebrow{font-family:var(--f-mono);font-size:.74rem;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);margin:0 0 8px}
+.sec{display:flex;flex-direction:column;gap:18px;min-width:0}
+.sec p.t{margin:0;max-width:66ch;color:var(--muted)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));border:1px solid var(--line);background:var(--panel);border-radius:8px}
+.fact{padding:16px 18px;border-right:1px solid var(--line);min-width:0}
+.fact:last-child{border-right:0}
+.fact b{display:block;font-family:var(--f-mono);font-weight:500;font-size:1.9rem;line-height:1.1}
+.fact span{color:var(--muted);font-size:.88rem}
+@media (max-width:640px){.fact{border-right:0;border-bottom:1px solid var(--line)}.fact:last-child{border-bottom:0}}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px;min-width:0}
+.card h3{margin:0 0 6px;font-size:1rem}
+.card p{margin:0;color:var(--muted);font-size:.93rem}
+.diagram{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;overflow-x:auto}
+.diagram svg{min-width:640px;width:100%;height:auto;display:block}
+.bx{fill:var(--soft);stroke:var(--line);stroke-width:1.2}
+.bx.k{fill:var(--head);stroke:var(--head)}
+.bx.w{fill:var(--warn-bg);stroke:var(--warn)}
+.dt{fill:var(--ink);font:500 13px var(--f-ui)}
+.dt.k{fill:var(--head-fg)}
+.ds{fill:var(--muted);font:400 11px var(--f-ui)}
+.ds.k{fill:#b8c5d6}
+.ar{stroke:var(--muted);stroke-width:1.4;fill:none}
+.ar.d{stroke-dasharray:5 4;stroke:var(--warn)}
+.arh{fill:var(--muted)}
+/* demo */
+.demo{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.dbar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--head);color:var(--head-fg)}
+.dbar b{font-weight:600}
+.fict{font-family:var(--f-mono);font-size:.72rem;background:var(--warn-bg);color:var(--warn);padding:3px 8px;border-radius:4px}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px 16px;padding:16px 14px;border-bottom:1px solid var(--line);align-items:end}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.78rem;color:var(--muted);font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.05em}
+label.ck{display:flex;gap:8px;align-items:center;font-size:.9rem;color:var(--ink);cursor:pointer}
+.in{font:inherit;font-size:.95rem;font-family:var(--f-ui);text-transform:none;letter-spacing:0;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
+.go{font:inherit;font-weight:600;padding:10px 16px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-fg);cursor:pointer}
+.go[disabled]{opacity:.55;cursor:progress}
+.params{grid-column:1/-1;font-family:var(--f-mono);font-size:.78rem;color:var(--muted)}
+.prog{height:6px;background:var(--soft)}
+.prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s linear}
+.status{padding:8px 14px;font-size:.82rem;color:var(--muted);font-family:var(--f-mono);border-bottom:1px solid var(--line)}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px 0}
+.tab{font:inherit;font-size:.88rem;padding:7px 12px;border:1px solid var(--line);border-bottom:0;background:var(--soft);color:var(--muted);border-radius:6px 6px 0 0;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--panel);color:var(--ink);font-weight:600;position:relative;top:1px}
+.pane{border-top:1px solid var(--line);padding:14px;min-width:0}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px;max-height:430px;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-size:.86rem;font-variant-numeric:tabular-nums}
+th{background:var(--head);color:var(--head-fg);font-weight:500;text-align:right;padding:8px 10px;white-space:nowrap;position:sticky;top:0}
+th:first-child,td:first-child,th:nth-child(2){text-align:left}
+td{padding:7px 10px;text-align:right;border-top:1px solid var(--line);white-space:nowrap}
+td.l{text-align:left}
+tr.hl td{background:var(--hl)}
+tr.sub td{background:var(--soft);font-weight:600}
+td.neg{color:var(--warn)}
+.st{font-family:var(--f-mono);font-size:.74rem;padding:2px 7px;border-radius:4px;background:var(--soft);border:1px solid var(--line)}
+.st.ok{color:var(--pos)} .st.run{color:var(--warn)} .st.err{color:var(--bad)}
+.sev{display:inline-block;font-family:var(--f-mono);font-size:.7rem;padding:2px 7px;border-radius:4px;border:1px solid var(--line)}
+.sev.c{color:var(--bad);border-color:var(--bad)} .sev.n{color:var(--pos)} .sev.x{color:var(--muted)}
+.ctl{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:end;padding:16px 14px;border-bottom:1px solid var(--line)}
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.sum div{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.sum b{display:block;font-family:var(--f-mono);font-size:1.4rem}
+.sum span{font-size:.8rem;color:var(--muted)}
+.empty{padding:30px 14px;color:var(--muted);text-align:center}
+.log{font-family:var(--f-mono);font-size:.76rem;background:var(--code);border:1px solid var(--line);border-radius:6px;padding:10px;max-height:190px;overflow-y:auto;color:var(--muted);margin:0 14px 14px;white-space:pre-wrap}
+.note{font-size:.84rem;color:var(--muted);margin:10px 0 0}
+.code{background:var(--code);border:1px solid var(--line);border-radius:8px;overflow:hidden;min-width:0}
+.code .cap{padding:8px 14px;font-family:var(--f-mono);font-size:.76rem;color:var(--muted);border-bottom:1px solid var(--line);background:var(--soft)}
+.code pre{margin:0;padding:14px;overflow-x:auto;font-family:var(--f-mono);font-size:.8rem;line-height:1.55;color:var(--ink)}
+.tl{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.tl .card .tag{font-family:var(--f-mono);font-size:.72rem;color:var(--accent)}
+footer a{color:var(--accent)}
+footer{border-top:1px solid var(--line);padding-top:18px;font-size:.88rem;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.prog i{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="id" href="../" style="text-decoration:none;color:inherit">&larr; Romeu Fronzaroli · Dados e Risco</a>
+    <div class="ctrl">
+      <button class="chip" id="l-pt" aria-pressed="true" type="button">PT</button>
+      <button class="chip" id="l-en" aria-pressed="false" type="button">EN</button>
+      <button class="chip" id="tema" type="button" data-i18n="tema">Tema</button>
+    </div>
+  </div>
+  <header class="sec">
+    <p class="eyebrow" data-i18n="eyebrow"></p>
+    <h1 data-i18n="h1"></h1>
+    <p class="lead" data-i18n="lead"></p>
+  </header>
+  <div class="facts">
+    <div class="fact"><b>4</b><span data-i18n="f1"></span></div>
+    <div class="fact"><b>4</b><span data-i18n="f2"></span></div>
+    <div class="fact"><b>3</b><span data-i18n="f3"></span></div>
+    <div class="fact"><b>1</b><span data-i18n="f4"></span></div>
+  </div>
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s1e"></p><h2 data-i18n="s1h"></h2></div>
+    <div class="cols">
+      <div class="card"><h3 data-i18n="p1h"></h3><p data-i18n="p1t"></p></div>
+      <div class="card"><h3 data-i18n="p2h"></h3><p data-i18n="p2t"></p></div>
+      <div class="card"><h3 data-i18n="p3h"></h3><p data-i18n="p3t"></p></div>
+    </div>
+  </section>
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="demoe"></p><h2 data-i18n="demoh"></h2>
+    <p class="t" style="margin:6px 0 0" data-i18n="demot"></p></div>
+    <div class="demo" id="demo">
+      <div class="dbar"><span><b data-i18n="dtitle"></b></span><span class="fict" data-i18n="fict"></span></div>
+      <div class="ctl">
+        <label class="f"><span data-i18n="ldef"></span><input class="in" id="def" value="5,0" inputmode="decimal" style="width:100px"></label>
+        <label class="ck"><input type="checkbox" id="exc" checked> <span data-i18n="lexc"></span></label>
+        <label class="f"><span data-i18n="lgrp"></span><select class="in" id="grp"></select></label>
+        <label class="f"><span data-i18n="lvar"></span><input class="in" id="vr" type="range" min="-30" max="30" value="0" step="1" style="padding:0"><span id="vrv" style="text-transform:none;letter-spacing:0;color:var(--ink)">0%</span></label>
+      </div>
+      <div class="status" id="status"></div>
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="pane" id="pane"></div>
+    </div>
+    <p class="note" data-i18n="demonote"></p>
+  </section>
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s2e"></p><h2 data-i18n="s2h"></h2></div>
+    <div class="diagram">
+      <svg viewBox="0 0 760 250" role="img" aria-labelledby="dg-t">
+        <title id="dg-t" data-i18n="dgtitle"></title>
+        <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="arh"/></marker></defs>
+        <rect class="bx k" x="10" y="20" width="150" height="64" rx="6"/>
+        <text class="dt k" x="85" y="48" text-anchor="middle" data-i18n="d1a"></text>
+        <text class="ds k" x="85" y="66" text-anchor="middle" data-i18n="d1b"></text>
+        <rect class="bx" x="205" y="20" width="150" height="64" rx="6"/>
+        <text class="dt" x="280" y="48" text-anchor="middle" data-i18n="d2a"></text>
+        <text class="ds" x="280" y="66" text-anchor="middle" data-i18n="d2b"></text>
+        <rect class="bx" x="400" y="20" width="150" height="64" rx="6"/>
+        <text class="dt" x="475" y="48" text-anchor="middle" data-i18n="d3a"></text>
+        <text class="ds" x="475" y="66" text-anchor="middle" data-i18n="d3b"></text>
+        <rect class="bx" x="595" y="20" width="155" height="64" rx="6"/>
+        <text class="dt" x="672" y="48" text-anchor="middle" data-i18n="d4a"></text>
+        <text class="ds" x="672" y="66" text-anchor="middle" data-i18n="d4b"></text>
+        <rect class="bx" x="595" y="150" width="155" height="64" rx="6"/>
+        <text class="dt" x="672" y="178" text-anchor="middle" data-i18n="d5a"></text>
+        <text class="ds" x="672" y="196" text-anchor="middle" data-i18n="d5b"></text>
+        <rect class="bx" x="400" y="150" width="150" height="64" rx="6"/>
+        <text class="dt" x="475" y="178" text-anchor="middle" data-i18n="d6a"></text>
+        <text class="ds" x="475" y="196" text-anchor="middle" data-i18n="d6b"></text>
+        <rect class="bx k" x="205" y="150" width="150" height="64" rx="6"/>
+        <text class="dt k" x="280" y="178" text-anchor="middle" data-i18n="d7a"></text>
+        <text class="ds k" x="280" y="196" text-anchor="middle" data-i18n="d7b"></text>
+        <path class="ar" d="M160 52H203" marker-end="url(#ah)"/>
+        <path class="ar" d="M355 52H398" marker-end="url(#ah)"/>
+        <path class="ar" d="M550 52H593" marker-end="url(#ah)"/>
+        <path class="ar" d="M672 84V148" marker-end="url(#ah)"/>
+        <path class="ar" d="M593 182H552" marker-end="url(#ah)"/>
+        <path class="ar" d="M398 182H357" marker-end="url(#ah)"/>
+      </svg>
+    </div>
+  </section>
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s6e"></p><h2 data-i18n="s6h"></h2>
+    <p class="t" style="margin-top:6px" data-i18n="s6t"></p></div>
+    <div class="code"><div class="cap" data-i18n="c1cap"></div><pre><code id="c1"></code></pre></div>
+    <div class="code"><div class="cap" data-i18n="c2cap"></div><pre><code id="c2"></code></pre></div>
+  </section>
+  <section class="sec">
+    <div><p class="eyebrow" data-i18n="s3e"></p><h2 data-i18n="s3h"></h2></div>
+    <div class="cols" id="dec"></div>
+  </section>
+  <footer>
+    <span data-i18n="foot1"></span>
+    <span><span data-i18n="contato"></span> <a href="https://www.linkedin.com/in/romeufronzaroli/" target="_blank" rel="noopener">LinkedIn</a></span>
+  </footer>
+</div>
+<script>
+var T = {
+pt:{tema:"Tema",eyebrow:"Estudo de caso · Conciliação regulatória",
+h1:"Balancete contra demonstrativo de risco, com tolerância em quatro níveis",
+lead:"Aplicação desktop em Python que confronta o balancete de cada entidade com o demonstrativo regulatório de risco de mercado. Um de-para liga contas contábeis a itens do demonstrativo, e a tolerância de cada grupo é resolvida pela regra mais específica disponível.",
+f1:"níveis de tolerância: item, tipo e fator de risco",f2:"cargas que recalculam os itens A90 e P90",f3:"formatos lidos: Excel, XML e CSV",f4:"de-para dirigindo toda a comparação",
+s1e:"O problema",s1h:"Dois documentos que deveriam contar a mesma história",
+p1h:"Contabilidade e risco em linguagens diferentes",p1t:"O balancete fala em contas contábeis; o demonstrativo, em itens, tipos e fatores de risco. Conferir os dois à mão exigia somar dezenas de contas por item, com sinais trocados em contas redutoras.",
+p2h:"Tolerância não é única",p2t:"Um item pode aceitar diferença maior que outro, e uma combinação específica de item, tipo e fator pode precisar de limite próprio. Uma regra única gerava falsos alertas ou escondia divergências reais.",
+p3h:"Itens que vêm de outras fontes",p3t:"Os itens A90 e P90 não saem do balancete. Dependem de quatro arquivos de carga, cada um com seu layout, filtros e base de cálculo.",
+demoe:"Demonstração",demoh:"Veja a tolerância hierárquica decidir cada grupo",
+demot:"Cinco grupos de contas contra o demonstrativo, mais A90 e P90 recalculados a partir de quatro cargas. Mude a tolerância padrão, desligue a exceção ou varie o valor do demonstrativo de um grupo e veja o status mudar. O cálculo roda no seu navegador.",
+dtitle:"Validador de demonstrativo",fict:"DADOS FICTÍCIOS",ldef:"Tolerância padrão (%)",lexc:"Aplicar exceção de item, tipo e fator",lgrp:"Variar o demonstrativo do grupo",lvar:"Variação",
+tGrp:"Grupos",tTol:"Tolerâncias",tCar:"Cargas A90 e P90",tRes:"Resumo",
+cTipo:"Tipo",cItem:"Item",cFat:"Fator",cCor:"Correspondência",cCt:"Contas (somar / subtrair)",cBal:"Balancete",cDrm:"Demonstrativo",cDif:"Diferença",cPerc:"Diferença %",cLim:"Limite %",cReg:"Regra",cSt:"Status",
+amp:"AMPLA",esp:"ESPECÍFICA",todos:"todos",
+nv1:"1. Item + Tipo + Fator de risco",nv2:"2. Item + Tipo",nv3:"3. Item",nv4:"4. Padrão",cNivel:"Nível",cRegra:"Regras cadastradas",cUsado:"Grupos que usaram",
+nenhuma:"nenhuma",
+cCarga:"Carga",cFiltro:"Filtro",cBase:"Base",cA90:"A90",cP90:"P90",cCargas:"Valor das cargas",
+fContabil:"Contábil",fCredito:"Crédito",fEmp:"Empréstimo",fYmf:"YMF",
+bSaldo:"saldo devedor",bNominal:"valor nominal",
+filtro:"percentual do indexador acima de 100%",filtroY:"percentual acima de 100%, sem o papel excluído",
+ok:"OK",div:"DIVERGENTE",
+rOk:"grupos dentro da tolerância",rDiv:"grupos divergentes",rTot:"verificações",
+demonote:"Entidade, contas, saldos, cargas e limites são inventados e ilustrativos. A estrutura (de-para, soma e subtração por rubrica, correspondência ampla ou específica, hierarquia de tolerância, recálculo por cargas) é a da aplicação real.",
+s2e:"Arquitetura",s2h:"Leitura, correspondência, comparação e relatório",
+dgtitle:"Fluxo: arquivos de entrada, leitores, validador, comparador, cargas e relatório",
+d1a:"Arquivos de entrada",d1b:"balancetes, demonstrativos, de-para",d2a:"Leitores",d2b:"Excel, XML e CSV por fábrica",d3a:"Validador",d3b:"estrutura e nomes de arquivo",d4a:"Orquestrador",d4b:"pares por entidade e período",
+d5a:"Comparador",d5b:"grupos, soma e tolerância",d6a:"Processador de cargas",d6b:"A90 e P90 por carga",d7a:"Relatório Excel",d7b:"status, regra e observação",
+s6e:"Código",s6h:"Dois trechos, genéricos e sem dados da instituição",
+s6t:"São trechos ilustrativos das regras centrais, e não a aplicação completa.",
+c1cap:"Tolerância resolvida da regra mais específica para a mais geral",c2cap:"Soma e subtração por rubrica",
+s3e:"Decisões e lições",s3h:"O que deu trabalho e como foi resolvido",
+foot1:"Este portfólio descreve um trabalho real. Nenhum dado, nome de entidade, limite, endereço ou credencial da instituição é exibido.",contato:"Contato:"},
+en:{tema:"Theme",eyebrow:"Case study · Regulatory reconciliation",
+h1:"Trial balance against a market risk statement, with four-level tolerance",
+lead:"A Python desktop application that checks each entity's trial balance against the regulatory market risk statement. A mapping table links accounting accounts to statement items, and each group's tolerance is resolved by the most specific rule available.",
+f1:"tolerance levels: item, type and risk factor",f2:"loads that recompute the A90 and P90 items",f3:"file formats read: Excel, XML and CSV",f4:"mapping table driving the whole comparison",
+s1e:"The problem",s1h:"Two documents that should tell the same story",
+p1h:"Accounting and risk speak different languages",p1t:"The trial balance speaks in accounts; the statement in items, types and risk factors. Checking both by hand meant summing dozens of accounts per item, with flipped signs on contra accounts.",
+p2h:"Tolerance is not one-size-fits-all",p2t:"One item may accept a larger difference than another, and a specific item, type and factor combination may need its own limit. A single rule produced false alerts or hid real divergences.",
+p3h:"Items that come from other sources",p3t:"Items A90 and P90 do not come from the trial balance. They depend on four load files, each with its own layout, filters and calculation base.",
+demoe:"Demo",demoh:"Watch the tolerance hierarchy decide each group",
+demot:"Five account groups against the statement, plus A90 and P90 recomputed from four loads. Change the default tolerance, turn off the exception or vary a group's statement value and watch the status change. The math runs in your browser.",
+dtitle:"Statement validator",fict:"SYNTHETIC DATA",ldef:"Default tolerance (%)",lexc:"Apply item, type and factor exception",lgrp:"Vary the statement of group",lvar:"Change",
+tGrp:"Groups",tTol:"Tolerances",tCar:"A90 and P90 loads",tRes:"Summary",
+cTipo:"Type",cItem:"Item",cFat:"Factor",cCor:"Match",cCt:"Accounts (add / subtract)",cBal:"Trial balance",cDrm:"Statement",cDif:"Difference",cPerc:"Difference %",cLim:"Limit %",cReg:"Rule",cSt:"Status",
+amp:"BROAD",esp:"SPECIFIC",todos:"all",
+nv1:"1. Item + Type + Risk factor",nv2:"2. Item + Type",nv3:"3. Item",nv4:"4. Default",cNivel:"Level",cRegra:"Registered rules",cUsado:"Groups that used it",
+nenhuma:"none",
+cCarga:"Load",cFiltro:"Filter",cBase:"Base",cA90:"A90",cP90:"P90",cCargas:"Loads value",
+fContabil:"Accounting",fCredito:"Credit",fEmp:"Borrowing",fYmf:"YMF",
+bSaldo:"outstanding balance",bNominal:"nominal value",
+filtro:"index percentage above 100%",filtroY:"percentage above 100%, excluding one instrument",
+ok:"OK",div:"DIVERGENT",
+rOk:"groups within tolerance",rDiv:"divergent groups",rTot:"checks",
+demonote:"Entity, accounts, balances, loads and limits are made up and illustrative. The structure (mapping table, add and subtract by line item, broad or specific match, tolerance hierarchy, recomputation from loads) is that of the real application.",
+s2e:"Architecture",s2h:"Reading, matching, comparison and report",
+dgtitle:"Flow: input files, readers, validator, comparator, loads and report",
+d1a:"Input files",d1b:"trial balances, statements, mapping",d2a:"Readers",d2b:"Excel, XML and CSV via factory",d3a:"Validator",d3b:"structure and file names",d4a:"Orchestrator",d4b:"pairs per entity and period",
+d5a:"Comparator",d5b:"groups, sums and tolerance",d6a:"Loads processor",d6b:"A90 and P90 per load",d7a:"Excel report",d7b:"status, rule and note",
+s6e:"Code",s6h:"Two excerpts, generic and free of institution data",
+s6t:"These are illustrative excerpts of the core rules, not the full application.",
+c1cap:"Tolerance resolved from the most specific rule to the most general",c2cap:"Adding and subtracting by line item",
+s3e:"Decisions and lessons",s3h:"What was hard and how it was solved",
+foot1:"This portfolio describes real work. No data, entity names, limits, addresses or credentials are shown.",contato:"Contact:"}
+};
+var DEC = {
+pt:[["Tolerância em quatro níveis","Item, tipo e fator de risco; depois item e tipo; depois só o item; por fim um padrão. A primeira regra cadastrada vence, e o nível usado fica registrado na observação de cada grupo, o que ajuda na auditoria."],
+["Correspondência ampla ou específica","Se o de-para não informa fator de risco, o grupo soma todos os fatores do demonstrativo. Se informa, filtra exatamente aquele fator. O resultado mostra qual das duas foi usada."],
+["Parênteses indicam subtração","Rubricas entre parênteses são contas redutoras e entram subtraindo. O de-para continua legível para quem é de contabilidade, e o código deriva a operação do próprio texto."],
+["Itens A90 e P90 por recálculo","Quatro cargas são lidas, filtradas por percentual de indexador acima de 100% e agregadas. O sinal da quantidade decide se o valor é A90 ou P90, e a carga YMF exclui um papel específico."],
+["Leitores por fábrica","Uma fábrica escolhe o leitor pelo tipo de arquivo. O CSV detecta o separador, o Excel tenta outro motor quando o primeiro falha e o XML lê as seções do demonstrativo. Nomes de arquivo seguem padrões validados por expressão regular."],
+["Processamento cancelável","A janela roda o processamento em segundo plano, com progresso, botão de cancelar e log salvo ao final. A planilha de resultados sai formatada, com status colorido por grupo."]],
+en:[["Four-level tolerance","Item, type and risk factor; then item and type; then item alone; finally a default. The first registered rule wins, and the level used is written in each group's note, which helps auditing."],
+["Broad or specific match","If the mapping table gives no risk factor, the group sums every factor in the statement. If it does, it filters exactly that factor. The result shows which one was used."],
+["Parentheses mean subtraction","Line items in parentheses are contra accounts and are subtracted. The mapping table stays readable to accountants, and the code derives the operation from the text itself."],
+["A90 and P90 by recomputation","Four loads are read, filtered by index percentage above 100% and aggregated. The sign of the quantity decides whether the value is A90 or P90, and the YMF load excludes one specific instrument."],
+["Readers behind a factory","A factory picks the reader by file type. CSV detects the separator, Excel tries another engine when the first fails and XML reads the statement sections. File names follow patterns validated by regular expressions."],
+["Cancelable processing","The window runs processing in the background, with progress, a cancel button and a log saved at the end. The results sheet is formatted, with colored status per group."]]
+};
+var C1=[
+'def obter_limite_tolerancia(self, item: str, tipo: str | None = None,',
+'                            fator: str | None = None) -> tuple[float, str]:',
+'    """Resolve o limite (%) da regra mais especifica para a mais geral."""',
+'    fator = fator or None',
+'    if tipo and fator and (item, tipo, fator) in self.tol_item_tipo_fator:',
+'        return self.tol_item_tipo_fator[(item, tipo, fator)], "Item+Tipo+Fator"',
+'    if tipo and (item, tipo) in self.tol_item_tipo:',
+'        return self.tol_item_tipo[(item, tipo)], "Item+Tipo"',
+'    if item in self.tol_item:',
+'        return self.tol_item[item], "Item"',
+'    return self.tol_padrao, "Padrao"'
+].join('\n');
+var C2=[
+'def preparar_de_para(df: pd.DataFrame) -> pd.DataFrame:',
+'    """Deriva operacao e conta limpa a partir da rubrica."""',
+'    df = df.copy()',
+'    df["Rubrica"] = df["Rubrica"].astype(str).str.strip()',
+'    df["Operacao"] = df["Rubrica"].apply(',
+'        lambda r: "SUBTRAIR" if "(" in r and ")" in r else "SOMAR")',
+'    df["Conta_Limpa"] = df["Rubrica"].str.replace(r"[().-]", "", regex=True)',
+'    return df',
+'',
+'def somar_grupo(balancete: pd.DataFrame, grupo: pd.DataFrame) -> float:',
+'    total = 0.0',
+'    for _, linha in grupo.iterrows():',
+'        valor = balancete.loc[',
+'            balancete["Conta_Limpa"] == linha["Conta_Limpa"], "Saldo"].sum()',
+'        total += valor if linha["Operacao"] == "SOMAR" else -valor',
+'    return total'
+].join('\n');
+
+var lang="pt", aba="tGrp", R=null;
+function t(k){return (T[lang][k]!==undefined)?T[lang][k]:k}
+function fmt(n){return n.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function lerPref(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function gravaPref(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function lerBR(s){var n=parseFloat(String(s).replace(/\./g,"").replace(",","."));return isNaN(n)?null:n}
+
+/* ---------- Dados ficticios ---------- */
+var DEPARA=[
+ {r:"1.2.1.00.00-0",item:"A10",tipo:"Ativo",fat:""},{r:"1.2.2.00.00-3",item:"A10",tipo:"Ativo",fat:""},{r:"(1.2.9.00.00-1)",item:"A10",tipo:"Ativo",fat:""},
+ {r:"1.6.1.10.00-5",item:"A20",tipo:"Ativo",fat:""},{r:"1.6.1.20.00-8",item:"A20",tipo:"Ativo",fat:""},{r:"(1.6.9.00.00-9)",item:"A20",tipo:"Ativo",fat:""},
+ {r:"4.1.1.10.00-0",item:"P10",tipo:"Passivo",fat:"JT1"},{r:"4.1.1.20.00-3",item:"P10",tipo:"Passivo",fat:"JT1"},
+ {r:"4.1.2.10.00-6",item:"P10",tipo:"Passivo",fat:"JT2"},{r:"4.3.1.00.00-4",item:"P30",tipo:"Passivo",fat:""}];
+var BAL={"1.2.1.00.00-0":8500000,"1.2.2.00.00-3":1200000,"1.2.9.00.00-1":150000,"1.6.1.10.00-5":40000000,"1.6.1.20.00-8":6000000,"1.6.9.00.00-9":2500000,
+ "4.1.1.10.00-0":20000000,"4.1.1.20.00-3":5000000,"4.1.2.10.00-6":6000000,"4.3.1.00.00-4":3000000};
+(function(){var n={};Object.keys(BAL).forEach(function(k){n[k.replace(/[().]/g,"").replace(/-/g,"")]=BAL[k]});BAL=n})();
+var DRM=[{tipo:"Ativo",item:"A10",fat:"CDI",v:6000000},{tipo:"Ativo",item:"A10",fat:"PRE",v:3400000},{tipo:"Ativo",item:"A20",fat:"CDI",v:30000000},{tipo:"Ativo",item:"A20",fat:"PRE",v:12000000},
+ {tipo:"Passivo",item:"P10",fat:"JT1",v:27000000},{tipo:"Passivo",item:"P10",fat:"JT2",v:5700000},{tipo:"Passivo",item:"P30",fat:"CDI",v:1800000},{tipo:"Passivo",item:"P30",fat:"PRE",v:1300000},
+ {tipo:"Ativo",item:"A90",fat:"",v:700000},{tipo:"Passivo",item:"P90",fat:"",v:230000}];
+var TOL_ITEM={A10:8,A20:15,A40:15,A50:8,A90:15,P10:15,P30:15,P40:15,P90:15};
+var TOL_ESP={"P10|Passivo|JT1":4};
+var CARGAS=[
+ {k:"fContabil",base:"bSaldo",y:false,rows:[["LCA",1.15,2000000,-1],["LCI",1.05,1000000,1],["CDB",1.00,3000000,1]]},
+ {k:"fCredito",base:"bNominal",y:false,rows:[["CCB",1.20,500000,-1],["CCB",1.10,800000,-1]]},
+ {k:"fEmp",base:"bSaldo",y:false,rows:[["REP",1.30,400000,1]]},
+ {k:"fYmf",base:"bNominal",y:true,rows:[["LFSC",1.50,900000,-1],["DPGE",1.12,1500000,-1]]}];
+var GRUPOS=null;
+function grupos(){
+  if(GRUPOS)return GRUPOS;var m={},o=[];
+  DEPARA.forEach(function(x){var k=x.tipo+"|"+x.item+"|"+x.fat;if(!m[k]){m[k]={k:k,tipo:x.tipo,item:x.item,fat:x.fat,linhas:[]};o.push(m[k])}m[k].linhas.push(x)});
+  GRUPOS=o;return o;
+}
+function conta(r){return r.replace(/[().]/g,"").replace(/-/g,"")}
+
+/* ---------- Regras ---------- */
+function limite(item,tipo,fat,padrao,usaExc){
+  if(usaExc&&tipo&&fat&&TOL_ESP[item+"|"+tipo+"|"+fat]!==undefined)return [TOL_ESP[item+"|"+tipo+"|"+fat],1];
+  if(TOL_ITEM[item]!==undefined)return [TOL_ITEM[item],3];
+  return [padrao,4];
+}
+function pct(dif,base){if(base!==0)return dif/base*100;return dif===0?0:(dif>0?100:-100)}
+function calcular(){
+  var padrao=lerBR(document.getElementById("def").value);if(padrao===null)padrao=5;
+  var usaExc=document.getElementById("exc").checked,gSel=document.getElementById("grp").value,v=parseFloat(document.getElementById("vr").value)||0;
+  document.getElementById("vrv").textContent=(v>0?"+":"")+v+"%";
+  var r={g:[],c:[],usos:{1:[],2:[],3:[],4:[]}};
+  grupos().forEach(function(g){
+    var bal=0,som=0,sub=0;
+    g.linhas.forEach(function(l){var sinal=(l.r.indexOf("(")>=0&&l.r.indexOf(")")>=0)?-1:1,val=BAL[conta(l.r)]||0;bal+=sinal*val;if(sinal>0)som++;else sub++});
+    var linhasD=DRM.filter(function(d){return d.tipo===g.tipo&&d.item===g.item&&(g.fat===""||d.fat===g.fat)});
+    var drm=linhasD.reduce(function(a,b){return a+b.v},0);if(g.k===gSel)drm=drm*(1+v/100);
+    var dif=drm-bal,p=pct(dif,bal),lim=limite(g.item,g.tipo,g.fat,padrao,usaExc);
+    r.usos[lim[1]].push(g.item+(g.fat?" "+g.fat:""));
+    r.g.push({g:g,bal:bal,drm:drm,dif:dif,p:p,lim:lim[0],nv:lim[1],ok:Math.abs(p)<=lim[0],som:som,sub:sub,amp:g.fat===""});
+  });
+  var tot={A90:{a:0,tipo:"Ativo"},P90:{a:0,tipo:"Passivo"}};r.det=[];
+  CARGAS.forEach(function(c){var A=0,P=0;
+    c.rows.forEach(function(x){if(x[1]>1&&!(c.y&&x[0]==="LFSC")){var val=x[2]*x[1]-x[2];if(x[3]<0)A+=val;else P+=val}});
+    r.det.push({c:c,A:A,P:P});tot.A90.a+=A;tot.P90.a+=P});
+  ["A90","P90"].forEach(function(it){
+    var drm=DRM.filter(function(d){return d.item===it})[0].v,val=tot[it].a,dif=drm-val,p=drm!==0?dif/drm*100:(val===0?0:-100),lim=limite(it,tot[it].tipo,"",padrao,usaExc);
+    r.usos[lim[1]].push(it);r.c.push({it:it,val:val,drm:drm,dif:dif,p:p,lim:lim[0],nv:lim[1],ok:Math.abs(p)<=lim[0]})});
+  R=r;
+  var n=r.g.length+r.c.length,ok=r.g.filter(function(x){return x.ok}).length+r.c.filter(function(x){return x.ok}).length;
+  document.getElementById("status").textContent=ok+" / "+n+" "+t("rTot")+" · "+t("rOk");
+  renderPane();
+}
+
+/* ---------- Renderizacao ---------- */
+function tabela(cols,rows){return '<div class="tw"><table><thead><tr>'+cols.map(function(c){return '<th>'+esc(c)+'</th>'}).join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table></div>'}
+function td(s){return '<td class="l">'+esc(s)+'</td>'}
+function num(v){return '<td'+(v<0?' class="neg"':'')+'>'+fmt(v)+'</td>'}
+function st(ok){return '<td class="l"><span class="sev '+(ok?'n':'c')+'">'+esc(ok?t("ok"):t("div"))+'</span></td>'}
+function nvNome(n){return t("nv"+n)}
+function renderTabs(){
+  var ks=["tGrp","tTol","tCar","tRes"],h="";
+  ks.forEach(function(k){h+='<button class="tab" role="tab" type="button" data-k="'+k+'" aria-selected="'+(aba===k)+'">'+esc(t(k))+'</button>'});
+  var el=document.getElementById("tabs");el.innerHTML=h;
+  Array.prototype.forEach.call(el.querySelectorAll(".tab"),function(b){b.onclick=function(){aba=b.getAttribute("data-k");renderTabs();renderPane()}});
+}
+function renderPane(){
+  var el=document.getElementById("pane"),h="";if(!R){el.innerHTML="";return}
+  if(aba==="tGrp"){
+    h=tabela([t("cTipo"),t("cItem"),t("cFat"),t("cCor"),t("cCt"),t("cBal"),t("cDrm"),t("cDif"),t("cPerc"),t("cLim"),t("cReg"),t("cSt")],R.g.map(function(x){
+      return '<tr'+(x.ok?'':' class="hl"')+'>'+td(x.g.tipo)+td(x.g.item)+td(x.g.fat||t("todos"))+td(x.amp?t("amp"):t("esp"))+td(x.som+" / "+x.sub)+num(x.bal)+num(x.drm)+num(x.dif)+'<td>'+fmt(x.p)+'%</td><td>'+fmt(x.lim)+'</td>'+td(nvNome(x.nv))+st(x.ok)+'</tr>'}));
+  }else if(aba==="tTol"){
+    var reg={1:Object.keys(TOL_ESP).map(function(k){return k.replace(/\|/g," | ")+" = "+fmt(TOL_ESP[k])+"%"}).join("; ")||t("nenhuma"),2:t("nenhuma"),
+      3:Object.keys(TOL_ITEM).map(function(k){return k+" = "+fmt(TOL_ITEM[k])+"%"}).join("; "),4:fmt(lerBR(document.getElementById("def").value)||5)+"%"};
+    if(!document.getElementById("exc").checked)reg[1]=t("nenhuma");
+    h=tabela([t("cNivel"),t("cRegra"),t("cUsado")],[1,2,3,4].map(function(n){return '<tr>'+td(t("nv"+n))+'<td class="l" style="white-space:normal">'+esc(reg[n])+'</td>'+'<td class="l" style="white-space:normal">'+esc(R.usos[n].join(", ")||"—")+'</td></tr>'}));
+  }else if(aba==="tCar"){
+    h=tabela([t("cCarga"),t("cBase"),t("cFiltro"),t("cA90"),t("cP90")],R.det.map(function(d){return '<tr>'+td(t(d.c.k))+td(t(d.c.base))+'<td class="l" style="white-space:normal">'+esc(d.c.y?t("filtroY"):t("filtro"))+'</td>'+num(d.A)+num(d.P)+'</tr>'}));
+    h+='<p class="note" style="margin:14px 0 8px"></p>'+tabela([t("cItem"),t("cCargas"),t("cDrm"),t("cDif"),t("cPerc"),t("cLim"),t("cReg"),t("cSt")],R.c.map(function(x){return '<tr'+(x.ok?'':' class="hl"')+'>'+td(x.it)+num(x.val)+num(x.drm)+num(x.dif)+'<td>'+fmt(x.p)+'%</td><td>'+fmt(x.lim)+'</td>'+td(nvNome(x.nv))+st(x.ok)+'</tr>'}));
+  }else{
+    var all=R.g.concat(R.c),okn=all.filter(function(x){return x.ok}).length;
+    h='<div class="sum"><div><b>'+all.length+'</b><span>'+esc(t("rTot"))+'</span></div><div><b>'+okn+'</b><span>'+esc(t("rOk"))+'</span></div><div><b>'+(all.length-okn)+'</b><span>'+esc(t("rDiv"))+'</span></div></div>';
+  }
+  el.innerHTML=h;
+}
+function popularGrupos(){
+  var sel=document.getElementById("grp"),v=sel.value,h="";
+  grupos().forEach(function(g){h+='<option value="'+esc(g.k)+'">'+esc(g.item+(g.fat?" · "+g.fat:"")+" ("+g.tipo+")")+'</option>'});
+  sel.innerHTML=h;if(v)sel.value=v;else sel.value="Passivo|P10|JT1";
+}
+function aplicarIdioma(){
+  document.documentElement.lang=(lang==="pt"?"pt-BR":"en");
+  var els=document.querySelectorAll("[data-i18n]"),i;
+  for(i=0;i<els.length;i++){var k=els[i].getAttribute("data-i18n");if(T[lang][k]!==undefined)els[i].textContent=T[lang][k]}
+  document.getElementById("l-pt").setAttribute("aria-pressed",lang==="pt");
+  document.getElementById("l-en").setAttribute("aria-pressed",lang==="en");
+  document.getElementById("dec").innerHTML=DEC[lang].map(function(x){return '<div class="card"><h3>'+esc(x[0])+'</h3><p>'+esc(x[1])+'</p></div>'}).join("");
+  document.getElementById("c1").textContent=C1;document.getElementById("c2").textContent=C2;
+  document.title=T[lang].h1;popularGrupos();renderTabs();calcular();
+}
+document.getElementById("l-pt").onclick=function(){lang="pt";gravaPref("lang","pt");aplicarIdioma()};
+document.getElementById("l-en").onclick=function(){lang="en";gravaPref("lang","en");aplicarIdioma()};
+document.getElementById("tema").onclick=function(){
+  var r=document.documentElement,atual=r.getAttribute("data-theme");
+  if(!atual)atual=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";
+  var novo=atual==="dark"?"light":"dark";r.setAttribute("data-theme",novo);gravaPref("tema",novo)};
+["def","exc","grp","vr"].forEach(function(id){var e=document.getElementById(id);e.addEventListener("input",calcular);e.addEventListener("change",calcular)});
+(function(){
+  var p=lerPref("lang");if(p==="pt"||p==="en")lang=p;else if((navigator.language||"").toLowerCase().indexOf("pt")!==0)lang="en";
+  var th=lerPref("tema");if(th==="dark"||th==="light")document.documentElement.setAttribute("data-theme",th);
+  aplicarIdioma();
+})();
+</script>
+</body>
+</html>
